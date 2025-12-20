@@ -4,12 +4,12 @@ import { connect } from 'cloudflare:sockets';
 // 🟣 用户配置区域 (优先级环境变量-代码硬编码)           下方内容可改生效于内置代码 【不使用环境变量的情况下】
 // =============================================================================
 const UUID = "06b65903-406d-4a41-8463-6fd5c0ee7798"; // 修改可用的uuid
-const WEB_PASSWORD = "2B6Hh4JDi9gSZNQ";  //自己要修改自定义的登录密码
-const SUB_PASSWORD = "a123.";  // 自己要修改自定义的订阅密码
+const WEB_PASSWORD = "";  //自己要修改自定义的登录密码
+const SUB_PASSWORD = "";  // 自己要修改自定义的订阅密码
 const DEFAULT_PROXY_IP = "ProxyIP.US.CMLiussss.net";  //可修改自定义的proxyip
 const DEFAULT_SUB_DOMAIN = "sub.cmliussss.net";  //可修改自定义的sub订阅器
-const TG_GROUP_URL = "https://t.me/zyssadmin";   //可修改自定义内容
-const TG_CHANNEL_URL = "https://t.me/cloudflareorg";  //可此修改自定义内容
+const TG_GROUP_URL = "";   //可修改自定义内容
+const TG_CHANNEL_URL = "";  //可此修改自定义内容
 const PROXY_CHECK_URL = "https://kaic.hidns.co/";  //可修改自定义的proxyip检测站
 const DEFAULT_CONVERTER = "https://subapi.cmliussss.net";  //可修改自定义后端api
 const CLASH_CONFIG = "https://raw.githubusercontent.com/cmliu/ACL4SSR/main/Clash/config/ACL4SSR_Online_Full_MultiMode.ini"; //可修改自定义订阅配置转换ini
