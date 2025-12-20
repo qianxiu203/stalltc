@@ -393,7 +393,7 @@ function loginPage(tgGroup, tgChannel) {
 </html>`;
 }
 
-function dashPage(host, uuid, proxyip, subpass, converter, env, clientIP, hasAuth, tgState, cfState, add, addApi, addCsv) {
+function dashPage(host, uuid, proxyip, subpass, converter, env, clientIP, hasAuth, tgState, cfState) {
     const defaultSubLink = `https://${host}/${subpass}`;
     const pathParam = proxyip ? "/proxyip=" + proxyip : "/";
     const longLink = "";
@@ -624,27 +624,7 @@ function dashPage(host, uuid, proxyip, subpass, converter, env, clientIP, hasAut
             </div>
         </div>
 
-        <!-- 🛠️ 优选IP与远程配置卡片 (移动到下方) -->
-        <div class="card">
-            <div class="section-title" style="justify-content:space-between">
-                <span>🛠️ 优选 IP 与 远程配置</span>
-                <button class="tool-btn" onclick="saveNodeConfig()" style="width:auto;padding:6px 12px;font-size:0.8rem;background:var(--green);border:none;color:white;font-weight:bold;">💾 保存配置</button>
-            </div>
-            <div style="font-size:0.8rem;color:#e74c3c;margin-bottom:10px;">⚠️ 注意：若要在此生效，请确保 Cloudflare 后台未设置对应环境变量 (ADD/ADDAPI/ADDCSV)</div>
-            
-            <div class="input-block">
-                <label>ADD - 本地优选 IP (格式: IP:Port#Name，一行一个)</label>
-                <textarea id="inpAdd" placeholder="1.1.1.1:443#US">${safeVal(add)}</textarea>
-            </div>
-            <div class="input-block">
-                <label>ADDAPI - 远程优选 TXT 链接 (支持多行)</label>
-                <textarea id="inpAddApi" placeholder="https://example.com/ips.txt">${safeVal(addApi)}</textarea>
-            </div>
-             <div class="input-block">
-                <label>ADDCSV - 远程优选 CSV 链接 (支持多行)</label>
-                <textarea id="inpAddCsv" placeholder="https://example.com/ips.csv">${safeVal(addCsv)}</textarea>
-            </div>
-        </div>
+
 
         <div class="card">
             <div class="section-title" style="justify-content:space-between">
@@ -801,15 +781,7 @@ function dashPage(host, uuid, proxyip, subpass, converter, env, clientIP, hasAut
             }
         }
 
-        // 新增：保存节点配置
-        function saveNodeConfig() {
-            const data = {
-                ADD: val('inpAdd'),
-                ADDAPI: val('inpAddApi'),
-                ADDCSV: val('inpAddCsv')
-            };
-            saveConfig(data, null);
-        }
+
         
         async function validateApi(type) {
             const endpoint = type === 'tg' ? 'validate_tg' : 'validate_cf';
@@ -1093,11 +1065,7 @@ export default {
           const cfState = (!!(await getSafeEnv(env, 'CF_ID', '')) && !!(await getSafeEnv(env, 'CF_TOKEN', ''))) ||
           (!!(await getSafeEnv(env, 'CF_EMAIL', '')) && !!(await getSafeEnv(env, 'CF_KEY', '')));
           
-          const _ADD = await getSafeEnv(env, 'ADD', "");
-          const _ADDAPI = await getSafeEnv(env, 'ADDAPI', "");
-          const _ADDCSV = await getSafeEnv(env, 'ADDCSV', "");
-
-          return new Response(dashPage(url.hostname, _UUID, _PROXY_IP, _SUB_PW, _CONVERTER, env, clientIP, hasPassword, tgState, cfState, _ADD, _ADDAPI, _ADDCSV), { status: 200, headers: noCacheHeaders });
+          return new Response(dashPage(url.hostname, _UUID, _PROXY_IP, _SUB_PW, _CONVERTER, env, clientIP, hasPassword, tgState, cfState), { status: 200, headers: noCacheHeaders });
       }
       
       // 🟣 代理逻辑 (WebSocket)
