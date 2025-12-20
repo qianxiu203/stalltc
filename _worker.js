@@ -593,31 +593,6 @@ function dashPage(host, uuid, proxyip, subpass, converter, env, clientIP, hasAut
             </div>
 
 
-            
-            <div class="input-block">
-                <label>Worker 域名 (SNI/Host)</label>
-                <input type="text" id="hostDom" value="${host}" oninput="updateLink()">
-            </div>
-
-            <div class="input-block">
-                <label>ProxyIP (优选)</label>
-                <div class="input-group-row">
-                    <input type="text" id="pIp" value="${proxyip}" oninput="updateLink()">
-                    <button class="btn-check" onclick="checkProxy()">检测 ProxyIP</button>
-                </div>
-           </div>
-
-
-            
-            <div class="input-block">
-                <label>订阅链接</label>
-                <textarea id="finalLink" readonly>${longLink}</textarea>
-            </div>
-
-            <div class="action-btns">
-                <button class="btn-main" onclick="copyId('finalLink')">复制链接</button>
-                <button class="btn-test" onclick="window.open(document.getElementById('finalLink').value)">测试访问</button>
-            </div>
         </div>
 
 
