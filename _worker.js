@@ -752,8 +752,6 @@ function dashPage(host, uuid, proxyip, subpass, converter, env, clientIP, hasAut
             <div class="brand"><i class="ri-radar-fill"></i> Worker Panel</div>
             <div class="header-controls">
                 <button class="btn btn-icon" onclick="toggleTheme()" title="切换主题"><i class="ri-contrast-line"></i></button>
-                <button class="btn btn-icon ${tgState ? 'active' : ''}" onclick="showModal('tgModal')" title="TG Bot 设置"><i class="ri-robot-2-line"></i></button>
-                <button class="btn btn-icon ${cfState ? 'active' : ''}" onclick="showModal('cfModal')" title="Cloudflare API 设置"><i class="ri-cloud-line"></i></button>
                 <button class="btn btn-icon" onclick="logout()" style="color:var(--danger); border-color:var(--danger)" title="退出"><i class="ri-shut-down-line"></i></button>
             </div>
         </div>
