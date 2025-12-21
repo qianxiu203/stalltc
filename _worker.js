@@ -588,48 +588,49 @@ function dashPage(host, uuid, proxyip, subpass, converter, env, clientIP, hasAut
             .stats-grid { grid-template-columns: 1fr; }
         }
 
-        /* 仪表盘 - 霓虹细环风格 */ 
+        /* 仪表盘 - 270度缺口风格 */ 
          .gauge-container { 
              display: flex; 
              flex-direction: column; 
              align-items: center; 
              justify-content: center; 
              position: relative; 
-             margin-bottom: 10px; 
          } 
          .gauge-svg { 
-             transform: rotate(-90deg); /* 从顶部开始 */ 
-             width: 140px; /* 稍微加大一点尺寸 */ 
-             height: 140px; 
-             filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.5)); /* 整体发光 */ 
+             /* 旋转 135度，让缺口朝下 */ 
+             transform: rotate(135deg); 
+             width: 120px; 
+             height: 120px; 
          } 
          .gauge-circle-bg { 
              fill: none; 
              stroke: var(--card-border); 
-             stroke-width: 3; /* 线条变细 */ 
-             opacity: 0.4; 
+             stroke-width: 4; 
+             stroke-linecap: round; 
+             /* 背景只显示 75% 的圆，留出缺口 */ 
+             stroke-dasharray: 75, 100; 
          } 
          .gauge-circle-val { 
              fill: none; 
              stroke: var(--accent); 
-             stroke-width: 3; /* 线条变细 */ 
-             stroke-linecap: round; /* 圆润的端点 */ 
-             transition: stroke-dasharray 1s cubic-bezier(0.4, 0, 0.2, 1); 
-             filter: drop-shadow(0 0 6px var(--accent)); /* 进度条高亮发光 */ 
+             stroke-width: 4; 
+             stroke-linecap: round; 
+             transition: stroke-dasharray 1s ease; 
+             filter: drop-shadow(0 0 8px var(--accent)); 
          } 
          .gauge-text { 
              position: absolute; 
-             font-size: 2.2rem; 
-             font-weight: 800; 
+             top: 50%; /* 调整文字位置 */ 
+             left: 50%; 
+             transform: translate(-50%, -50%); 
+             font-size: 1.8rem; 
+             font-weight: 700; 
              color: var(--text-primary); 
-             text-shadow: 0 0 15px rgba(59, 130, 246, 0.3); 
          } 
          .gauge-label { 
-             margin-top: 5px; 
+             margin-top: -10px; /* 拉近文字和仪表盘的距离 */ 
              color: var(--text-secondary); 
-             font-size: 0.85rem; 
-             text-transform: uppercase; 
-             letter-spacing: 1px; 
+             font-size: 0.8rem; 
          }
 
         /* 状态列表 */
