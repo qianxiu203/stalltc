@@ -588,59 +588,74 @@ function dashPage(host, uuid, proxyip, subpass, converter, env, clientIP, hasAut
             .stats-grid { grid-template-columns: 1fr; }
         }
 
-        /* 仪表盘 - 半圆弧风格 */ 
+        /* 仪表盘 - 实体轨道风格 */ 
          .gauge-container { 
              position: relative; 
-             width: 160px; /* 宽度可以稍大 */ 
-             height: 90px; /* 高度只有宽度的一半 */ 
-             margin: 0 auto; 
-             overflow: hidden; /* 切掉下半部分 */ 
+             width: 140px; /* 固定容器宽度，防止不同客户端变形 */ 
+             height: 140px; 
+             margin: 0 auto 10px auto; /* 居中 */ 
              display: flex; 
+             align-items: center; 
              justify-content: center; 
+         } 
+         
+         /* 给整个仪表盘加一个极淡的圆形背景，增加“边界感” */ 
+         .gauge-container::before { 
+             content: ''; 
+             position: absolute; 
+             width: 100%; 
+             height: 100%; 
+             border-radius: 50%; 
+             background: var(--card-bg); /* 或者使用 rgba(0,0,0,0.03) */ 
+             box-shadow: inset 0 0 10px rgba(0,0,0,0.05); /* 内阴影增加立体感 */ 
+             z-index: 0; 
          } 
  
          .gauge-svg { 
-             /* 旋转让开口朝下 */ 
-             transform: rotate(-180deg); 
-             width: 160px; 
-             height: 160px; /* SVG 本身是圆的 */ 
-             margin-top: 10px; /* 微调位置 */ 
+             transform: rotate(-90deg); 
+             width: 100%; 
+             height: 100%; 
+             z-index: 1; 
          } 
  
          .gauge-circle-bg { 
              fill: none; 
-             stroke: var(--card-border); 
-             stroke-width: 4; 
-             /* 背景只画一半 (50%) */ 
-             stroke-dasharray: 50, 100; 
-             opacity: 0.5; 
+             stroke: var(--text-secondary); /* 使用更明显的颜色作为轨道 */ 
+             stroke-width: 2.5; /* 轨道稍微细一点 */ 
+             opacity: 0.15; /* 增加不透明度，让轨道清晰可见 */ 
          } 
  
          .gauge-circle-val { 
              fill: none; 
              stroke: var(--accent); 
-             stroke-width: 4; 
+             stroke-width: 3.5; /* 进度条比轨道粗，形成层次感 */ 
              stroke-linecap: round; 
-             transition: stroke-dasharray 1s ease; 
+             transition: stroke-dasharray 0.8s cubic-bezier(0.4, 0, 0.2, 1); 
          } 
  
+         /* 居中文字容器 */ 
          .gauge-data { 
              position: absolute; 
-             bottom: 5px; /* 文字固定在底部，绝不会被遮挡 */ 
-             text-align: center; 
+             display: flex; 
+             flex-direction: column; 
+             align-items: center; 
+             justify-content: center; 
+             z-index: 2; 
          } 
  
          .gauge-text { 
-             font-size: 1.8rem; /* 字号适中 */ 
+             /* 解决字体过大问题，使用 clamp 在不同屏幕自动缩放 */ 
+             font-size: clamp(1.2rem, 4vw, 1.8rem); 
              font-weight: 700; 
              color: var(--text-primary); 
-             line-height: 1; 
+             line-height: 1.1; 
          } 
  
          .gauge-label { 
-             font-size: 0.8rem; 
+             font-size: 0.75rem; 
              color: var(--text-secondary); 
              margin-top: 2px; 
+             font-weight: 500; 
          }
 
         /* 状态列表 */
