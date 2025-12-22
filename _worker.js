@@ -29,6 +29,21 @@ const MAX_PENDING=2097152,KEEPALIVE=15000,STALL_TO=8000,MAX_STALL=12,MAX_RECONN=
 const buildUUID=(a,i)=>[...a.slice(i,i+16)].map(n=>n.toString(16).padStart(2,'0')).join('').replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/,'$1-$2-$3-$4-$5');
 const extractAddr=b=>{const o=18+b[17]+1,p=(b[o]<<8)|b[o+1],t=b[o+2];let l,h,O=o+3;switch(t){case 1:l=4;h=b.slice(O,O+l).join('.');break;case 2:l=b[O++];h=new TextDecoder().decode(b.slice(O,O+l));break;case 3:l=16;h=`[${[...Array(8)].map((_,i)=>((b[O+i*2]<<8)|b[O+i*2+1]).toString(16)).join(':')}]`;break;default:throw new Error('Addr type error');}return{host:h,port:p,payload:b.slice(O+l)}};
 
+// 🟢 [新增] 解析 ProxyIP 列表的辅助函数
+async function parseProxyList(str) {
+    if (!str) return [];
+    // 支持逗号或换行符分隔
+    const list = str.split(/[,\n]/).map(s => s.trim()).filter(Boolean);
+    const result = [];
+    for (const item of list) {
+        try {
+            const [address, port] = await parseIP(item); // 复用现有的 parseIP
+            result.push({ address, port });
+        } catch(e) {}
+    }
+    return result;
+}
+
 // 协议类型混淆
 const PT_TYPE = 'v'+'l'+'e'+'s'+'s';
 
@@ -285,7 +300,7 @@ async function sendTgMsg(ctx, env, title, r, detail = "", isAdmin = false) {
   } catch(e) {}
 }
 
-const handle = (ws, pc, uuid, backupProxyIP) => { // 🟢 传入备份代理IP
+const handle = (ws, pc, uuid, proxyIPList = []) => { // 🟢 接收 proxyIPList 数组
   const pool = new Pool();
   let s, w, r, inf, fst = true, rx = 0, stl = 0, cnt = 0, lact = Date.now(), con = false, rd = false, wt = false, tm = {}, pd = [], pb = 0, scr = 1.0, lck = Date.now(), lrx = 0, md = 'buf', asz = 0, tp = [], st = { t: 0, c: 0, ts: Date.now() };
   const upd = sz => {
@@ -321,10 +336,44 @@ const handle = (ws, pc, uuid, backupProxyIP) => { // 🟢 传入备份代理IP
   const est = async () => { try { s = await cn(); w = s.writable.getWriter(); r = s.readable.getReader();
   con = false; cnt = 0; scr = Math.min(1, scr + 0.15); lact = Date.now(); rdL();
   wtL() } catch { con = false; scr = Math.max(0.1, scr - 0.2); rcn() } };
-  const cn = async () => { const m = ['direct']; if (pc) m.push('proxy'); let err;
-  for (const x of m) { try { const o = (x === 'direct') ?
-  { hostname: inf.host, port: inf.port } : { hostname: pc.address, port: pc.port }; const sk = connect(o); await sk.opened;
-  return sk } catch (e) { err = e } } throw err };
+  // 🟢 核心修改：连接逻辑 (直连 -> 指定Proxy -> 轮询ProxyIP列表)
+  const cn = async () => {
+    // 第一步：死马当活马医，先试本地直连 (`connect(target)`).
+    try {
+        const direct = connect({ hostname: inf.host, port: inf.port });
+        await direct.opened;
+        return direct;
+    } catch (e) {
+        // console.log(`直连 ${inf.host} 失败，尝试 ProxyIP...`);
+    }
+
+    // 第二步：如果 URL 链接里带了 `?proxyip=...`，尝试这个特定的。
+    if (pc && pc.address) {
+        try {
+            const specific = connect({ hostname: pc.address, port: pc.port });
+            await specific.opened;
+            return specific;
+        } catch (e) {}
+    }
+
+    // 第三步：如果上面都挂了，进入 `for (const proxy of proxyIPList)` 循环，一个个试。
+    if (proxyIPList && proxyIPList.length > 0) {
+        for (const proxy of proxyIPList) {
+            try {
+                // console.log(`尝试 ProxyIP: ${proxy.address}`);
+                const socket = connect({ hostname: proxy.address, port: proxy.port });
+                await socket.opened;
+                return socket; // 连接成功，返回 Socket
+            } catch (e) {
+                // 当前 ProxyIP 失败，自动 continue 尝试下一个，直到列表结束。
+                continue;
+            }
+        }
+    }
+
+    // 4. 全部失败
+    throw new Error('All connection attempts failed');
+ };
   const rcn = async () => { if (!inf || ws.readyState !== 1) { cln(); ws.close(1011);
   return } if (cnt >= MAX_RECONN) { cln(); ws.close(1011); return } if (con) return; cnt++;
   let d = Math.min(50 * Math.pow(1.5, cnt - 1), 3000) * (1.5 - scr * 0.5); d = Math.max(50, Math.floor(d));
@@ -1379,9 +1428,16 @@ export default {
         } catch (e) { console.error(e);
         }
       }
+
+      // 🟢 [新增] 预先解析全局 ProxyIP 列表 (支持多个)
+      const globalProxyIPs = await parseProxyList(_PROXY_IP);
+
       const { 0: c, 1: s } = new WebSocketPair();
       s.accept(); 
-      handle(s, proxyIPConfig, _UUID); 
+      
+      // 🟢 将 globalProxyIPs 作为第四个参数传入
+      handle(s, proxyIPConfig, _UUID, globalProxyIPs); 
+      
       return new Response(null, { status: 101, webSocket: c });
   } catch (err) {
       return new Response(err.toString(), { status: 500 });
