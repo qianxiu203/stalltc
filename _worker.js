@@ -1501,7 +1501,9 @@ async function getCustomIPs(env) {
 
 function genNodes(h, u, p, ipsText, ps = "") {
     let l = ipsText.split('\n').filter(line => line.trim() !== "");
-    const P = p ? `/proxyip=${p.trim()}` : "/";
+    // 将 ProxyIP 中的换行符替换为英文逗号，确保所有客户端能正确识别
+    const cleanedProxyIP = p ? p.replace(/\n/g, ',') : '';
+    const P = cleanedProxyIP ? `/proxyip=${cleanedProxyIP.trim()}` : "/";
     const E = encodeURIComponent(P);
     return l.map(L => {
         const [a, n] = L.split('#'); if (!a) return "";
