@@ -1241,7 +1241,7 @@ export default {
 
       // 🟢 伪装页面：根路径直接重定向到 Bing，增强隐蔽性
       if (url.pathname === '/') {
-          return Response.redirect('https://www.bing.com', 302);
+          return Response.redirect('https://cn.bing.com', 302);
       }
 
       // 🟢 API 接口
