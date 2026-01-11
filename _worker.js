@@ -10,6 +10,7 @@ const UUID = ""; // 修改可用的uuid
 const WEB_PASSWORD = "";  //自己要修改自定义的登录密码
 const SUB_PASSWORD = "";  // 自己要修改自定义的订阅密码
 const DEFAULT_PROXY_IP = "";  //可修改自定义的proxyip
+const ROOT_REDIRECT_URL = "https://cn.bing.com"; // 根路径 `/` 重定向目标（支持 env/D1/KV 覆盖）
 
 const TG_GROUP_URL = "";   //可修改自定义内容
 const TG_CHANNEL_URL = "";  //可此修改自定义内容
@@ -1207,7 +1208,13 @@ export default {
       const _WEB_PW = await getSafeEnv(env, 'WEB_PASSWORD', WEB_PASSWORD);
       const _SUB_PW = await getSafeEnv(env, 'SUB_PASSWORD', SUB_PASSWORD);
       const _PROXY_IP = await getSafeEnv(env, 'PROXYIP', DEFAULT_PROXY_IP);
-      const _PS = await getSafeEnv(env, 'PS', ""); 
+	      const _ROOT_REDIRECT_URL_RAW = await getSafeEnv(env, 'ROOT_REDIRECT_URL', ROOT_REDIRECT_URL);
+	      const _PS = await getSafeEnv(env, 'PS', ""); 
+	      // 规范化根路径重定向目标：空值/非法值时回退到代码默认值
+	      let _ROOT_REDIRECT_URL = (_ROOT_REDIRECT_URL_RAW || '').trim();
+	      if (!_ROOT_REDIRECT_URL) _ROOT_REDIRECT_URL = ROOT_REDIRECT_URL;
+	      if (_ROOT_REDIRECT_URL && !_ROOT_REDIRECT_URL.includes('://')) _ROOT_REDIRECT_URL = 'https://' + _ROOT_REDIRECT_URL;
+		      try { new URL(_ROOT_REDIRECT_URL); } catch { _ROOT_REDIRECT_URL = ROOT_REDIRECT_URL; }
       
 
       let _CONVERTER = await getSafeEnv(env, 'SUBAPI', DEFAULT_CONVERTER);
@@ -1324,6 +1331,22 @@ export default {
           }
       }
 
+	      // 🟣 新增路由：根路径重定向
+	      // - 放在自动防刷之后，确保对 `/` 的访问同样会被 checkFlood 统计/拦截。
+	      // - 仅对普通 HTTP 请求生效，避免影响 WebSocket Upgrade。
+	      // - 若带有 `?flag=...`（内部 API）则不强制跳转，避免破坏现有面板的接口调用。
+	      if (url.pathname === '/' && r.headers.get('Upgrade') !== 'websocket' && !url.searchParams.has('flag')) {
+	          return Response.redirect(_ROOT_REDIRECT_URL, 302);
+	      }
+
+	      // 🟣 新增路由：管理员路径
+	      // - 访问 `/admin` 时展示登录页/面板（由下方“面板逻辑(HTTP)”统一处理），不做重定向。
+	      // - 这里仅做显式保留点，后续若扩展其它路径路由，可在此处优先判断。
+	      //   （当前无需 return；让请求继续走现有逻辑即可）
+	      // if (url.pathname === '/admin' || url.pathname === '/admin/') {
+	      //     // no-op
+	      // }
+
       // 🟢 订阅接口
       if (_SUB_PW && url.pathname === `/${_SUB_PW}`) {
           ctx.waitUntil(logAccess(env, clientIP, `${city},${country}`, "订阅更新"));
@@ -1388,6 +1411,13 @@ export default {
 
       // 🟢 面板逻辑 (HTTP)
       if (r.headers.get('Upgrade') !== 'websocket') {
+	        // 🟣 新增路由：仅允许 /admin 作为管理入口
+	        // 说明：根路径 `/` 已在上方做重定向；其余未命中的普通 HTTP 路径统一返回 404，
+	        // 以避免把管理登录页暴露在任意路径下（不影响 WebSocket 代理与订阅接口）。
+	        if (url.pathname !== '/admin' && url.pathname !== '/admin/') {
+	            return new Response('Not Found', { status: 404 });
+	        }
+
         const noCacheHeaders = { 
             'Content-Type': 'text/html; charset=utf-8', 
             'Cache-Control': 'no-store',
