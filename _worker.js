@@ -6,10 +6,11 @@ let BANS_CACHE = { data: new Set(), lastUpdate: 0 };
 // =============================================================================
 // 🟣 用户配置区域 (优先级环境变量-代码硬编码)           下方内容可改生效于内置代码 【不使用环境变量的情况下】
 // =============================================================================
-const UUID = ""; // 修改可用的uuid
-const WEB_PASSWORD = "";  //自己要修改自定义的登录密码
-const SUB_PASSWORD = "";  // 自己要修改自定义的订阅密码
-const DEFAULT_PROXY_IP = "";  //可修改自定义的proxyip
+	const UUID = ""; // 修改可用的uuid
+	const WEB_PASSWORD = "";  //自己要修改自定义的登录密码
+	const SUB_PASSWORD = "";  // 自己要修改自定义的订阅密码
+	const WS_PATH = "";  // (可选) WebSocket 隐藏路径；不填则默认使用 SUB_PASSWORD
+	const DEFAULT_PROXY_IP = "";  //可修改自定义的proxyip
 
 const TG_GROUP_URL = "";   //可修改自定义内容
 const TG_CHANNEL_URL = "";  //可此修改自定义内容
@@ -1191,11 +1192,13 @@ export default {
     }
     
     try {
-      const url = new URL(r.url);
+	      const url = new URL(r.url);
       const host = url.hostname; 
       const UA = (r.headers.get('User-Agent') || "").toLowerCase();
       // 🟢 关键：提取 UA_L 供后续使用
       const UA_L = UA.toLowerCase();
+	      const upgrade = (r.headers.get('Upgrade') || '').toLowerCase();
+	      const isWebSocket = upgrade === 'websocket';
       
       const clientIP = r.headers.get('cf-connecting-ip');
       const country = r.cf?.country || 'UNK';
@@ -1206,6 +1209,8 @@ export default {
       await getDynamicUUID(env.KEY, env.UUID_REFRESH || 86400) : (await getSafeEnv(env, 'UUID', UUID));
       const _WEB_PW = await getSafeEnv(env, 'WEB_PASSWORD', WEB_PASSWORD);
       const _SUB_PW = await getSafeEnv(env, 'SUB_PASSWORD', SUB_PASSWORD);
+	      // 🛡️ WebSocket 隐藏路径：优先使用 WS_PATH；未配置时默认使用 SUB_PASSWORD
+	      const _WS_PATH = ((await getSafeEnv(env, 'WS_PATH', WS_PATH)) || '').trim() || ((_SUB_PW || '').trim());
       const _PROXY_IP = await getSafeEnv(env, 'PROXYIP', DEFAULT_PROXY_IP);
       const _PS = await getSafeEnv(env, 'PS', ""); 
       
@@ -1246,7 +1251,7 @@ export default {
 	      // 说明：
 	      // - 普通访问 /（无 flag）会继续走下方“自动防刷”逻辑；
 	      // - 带 flag 的请求会在这里先做一次防洪检测，防止提前 return 导致绕过。
-	      if (url.pathname === '/' && flag && (env.DB || env.LH) && !isAdmin && r.headers.get('Upgrade') !== 'websocket') {
+	      if (url.pathname === '/' && flag && (env.DB || env.LH) && !isAdmin && !isWebSocket) {
 	          const isFlood = await checkFlood(env, clientIP);
 	          if (isFlood) {
 	              const alreadyBanned = await checkBan(env, clientIP);
@@ -1327,7 +1332,7 @@ export default {
       // 🛡️ 自动防刷
       if (env.DB || env.LH) {
           ctx.waitUntil(incrementDailyStats(env));
-          if (!isAdmin && r.headers.get('Upgrade') !== 'websocket') {
+	          if (!isAdmin && !isWebSocket) {
               const isFlood = await checkFlood(env, clientIP);
               if (isFlood) {
                   const alreadyBanned = await checkBan(env, clientIP);
@@ -1341,12 +1346,12 @@ export default {
       }
 
 	      // 🟢 伪装页面：根路径先通过防洪检测，再重定向到 Bing
-	      if (r.headers.get('Upgrade') !== 'websocket' && url.pathname === '/') {
+	      if (!isWebSocket && url.pathname === '/') {
 	          return Response.redirect('https://cn.bing.com', 302);
 	      }
 
-      // 🟢 订阅接口
-      if (_SUB_PW && url.pathname === `/${_SUB_PW}`) {
+	      // 🟢 订阅接口 (HTTP only)
+	      if (!isWebSocket && _SUB_PW && url.pathname === `/${_SUB_PW}`) {
           ctx.waitUntil(logAccess(env, clientIP, `${city},${country}`, "订阅更新"));
           const isFlagged = url.searchParams.has('flag');
           if (!isFlagged) {
@@ -1388,12 +1393,12 @@ export default {
 
           const requestProxyIp = url.searchParams.get('proxyip') || _PROXY_IP;
           const allIPs = await getCustomIPs(env);
-          const listText = genNodes(host, _UUID, requestProxyIp, allIPs, _PS);
+	          const listText = genNodes(host, _UUID, requestProxyIp, allIPs, _PS, _WS_PATH);
           return new Response(btoa(unescape(encodeURIComponent(listText))), { status: 200, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
       }
 
-      // 🟢 常规订阅 /sub
-      if (url.pathname === '/sub') {
+	      // 🟢 常规订阅 /sub (HTTP only)
+	      if (!isWebSocket && url.pathname === '/sub') {
           ctx.waitUntil(logAccess(env, clientIP, `${city},${country}`, "常规订阅"));
           const requestUUID = url.searchParams.get('uuid');
           if (requestUUID.toLowerCase() !== _UUID.toLowerCase()) return new Response('Invalid UUID', { status: 403 });
@@ -1403,12 +1408,12 @@ export default {
           if (pathParam && pathParam.includes('/proxyip=')) proxyIp = pathParam.split('/proxyip=')[1];
           
           const allIPs = await getCustomIPs(env);
-          const listText = genNodes(host, _UUID, proxyIp, allIPs, _PS);
+	          const listText = genNodes(host, _UUID, proxyIp, allIPs, _PS, _WS_PATH);
           return new Response(btoa(unescape(encodeURIComponent(listText))), { status: 200, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
       }
 
       // 🟢 面板逻辑 (HTTP) - 只有访问 /admin 才显示管理界面
-      if (r.headers.get('Upgrade') !== 'websocket') {
+	      if (!isWebSocket) {
         // 非 /admin 路径的 HTTP 请求返回 404（WebSocket 代理不受影响）
         if (url.pathname !== '/admin') {
             return new Response('Not Found', { status: 404 });
@@ -1444,7 +1449,15 @@ export default {
           return new Response(dashPage(url.hostname, _UUID, _PROXY_IP, _SUB_PW, _CONVERTER, env, clientIP, hasPassword, tgState, cfState), { status: 200, headers: noCacheHeaders });
       }
       
-      // 🟣 代理逻辑 (WebSocket)
+	      // 🛡️ WebSocket 隐藏路径：只允许在指定路径下 Upgrade，降低被主动探测命中率
+	      if (_WS_PATH) {
+	        const wsBase = '/' + _WS_PATH.replace(/^\/+|\/+$/g, '');
+	        if (!(url.pathname === wsBase || url.pathname.startsWith(wsBase + '/'))) {
+	          return new Response('Not Found', { status: 404 });
+	        }
+	      }
+
+	      // 🟣 代理逻辑 (WebSocket)
       let proxyIPConfig = null;
       if (url.pathname.includes('/proxyip=')) {
         try {
@@ -1525,11 +1538,13 @@ async function getCustomIPs(env) {
     return ips;
 }
 
-function genNodes(h, u, p, ipsText, ps = "") {
+	function genNodes(h, u, p, ipsText, ps = "", wsPath = "") {
     let l = ipsText.split('\n').filter(line => line.trim() !== "");
     // 将 ProxyIP 中的换行符替换为英文逗号，确保所有客户端能正确识别
     const cleanedProxyIP = p ? p.replace(/\n/g, ',') : '';
-    const P = cleanedProxyIP ? `/proxyip=${cleanedProxyIP.trim()}` : "/";
+	    const normalizedWsPath = (wsPath || "").trim().replace(/^\/+|\/+$/g, '');
+	    const prefix = normalizedWsPath ? `/${normalizedWsPath}` : "";
+	    const P = cleanedProxyIP ? `${prefix}/proxyip=${cleanedProxyIP.trim()}` : (prefix || "/");
     const E = encodeURIComponent(P);
     return l.map(L => {
         const [a, n] = L.split('#'); if (!a) return "";
