@@ -1,29 +1,61 @@
-// 相关环境变量(都是可选的)
-// SUB_PATH | subpath  订阅路径
-// PXY_IP   | pxyip    代理IP
-// UUID     | uuid     UUID
-// DIS_TRO  | 是否关闭T-R-J, 设置为true时关闭，false开启，默认开启
-
+// =============================================================================
+// 🔧 配置区域 (优先级: 环境变量 > D1数据库 > KV存储 > 代码硬编码)
+// =============================================================================
 import { connect } from 'cloudflare:sockets';
 
-// 协议类型标识（拆分拼接避免检测）
-const _pType1 = 'v' + 'l' + 'e' + 's' + 's';
-const _pType2 = 't' + 'r' + 'o' + 'j' + 'a' + 'n';
-const _pxKey = 'p' + 'r' + 'o' + 'x' + 'y';
-const _skKey = 's' + 'o' + 'c' + 'k' + 's';
+// 用户配置 (建议通过环境变量或 D1/KV 配置)
+const UUID = "";  // UUID
+const WEB_PASSWORD = "";  // 管理页面密码
+const SUB_PASSWORD = "";  // 订阅密码
+const DEFAULT_PROXY_IP = "";  // ProxyIP
+const ROOT_REDIRECT_URL = "";  // 根路径重定向目标 (留空则反代 Bing)
+const DISABLE_TROJAN = true;  // 是否禁用 Trojan
 
-let subPath = 'link';     // 节点订阅路径,不修改将使用uuid作为订阅路径
-let password = 'qianxiuadmin';  // 主页密码,建议修改或添加 PASSWORD环境变量
-let pxyAddr = 'ProxyIP.US.CMLiussss.net';  // 代理IP 格式：ip、域名、ip:port、域名:port等,没填写port，默认使用443
-let yourUUID = '5dc15e15-f285-4a9d-959b-0e4fbdd77b63'; // UUID,建议修改或添加环境便量
-let disabletro = false;  // 是否关闭备用协议, 设置为true时关闭，false开启
-let rootRedirectUrl = ''; // 根路径 `/` 重定向目标URL（留空则显示主页），支持 ROOT_REDIRECT_URL 环境变量覆盖
-
-// CDN 
+// CDN 优选列表
 let cfip = [
-    'ask.555131.xyz#自建', 'saas.sin.fan#saas', 'ask.cf.090227.xyz#cm','www.shopify.com#shopify'
+    'ask.555131.xyz#my',
+    'ask.cf.090227.xyz#cm',
+    'www.shopify.com#shopify',
+    'saas.sin.fan#saas'
 ];
-function closeSocketQuietly(socket) { 
+
+// 协议类型混淆 (防止明文暴露)
+const PT_VLESS = 'v' + 'l' + 'e' + 's' + 's';
+const PT_TROJAN = 't' + 'r' + 'o' + 'j' + 'a' + 'n';
+const PATH_ADMIN = atob('YWRtaW4=');  // "admin" Base64混淆
+const PATH_PROXYIP = atob('cHJveHlpcA==');  // "proxyip" Base64混淆
+const PARAM_PASSWORD = atob('cGFzc3dvcmQ=');  // "password" Base64混淆
+
+// =============================================================================
+// 🗄️ 环境变量与存储助手 (支持 env > D1 > KV 多级回退)
+// =============================================================================
+async function getSafeEnv(env, key, fallback) {
+    // 1. 优先从环境变量读取
+    if (env[key] && env[key].trim() !== "") return env[key];
+
+    // 2. 尝试从 D1 数据库读取
+    if (env.DB) {
+        try {
+            const { results } = await env.DB.prepare("SELECT value FROM config WHERE key = ?").bind(key).all();
+            if (results && results.length > 0 && results[0].value && results[0].value.trim() !== "") {
+                return results[0].value;
+            }
+        } catch(e) { /* D1读取失败忽略 */ }
+    }
+
+    // 3. 尝试从 KV 存储读取
+    if (env.LH) {
+        try {
+            const kvVal = await env.LH.get(key);
+            if (kvVal && kvVal.trim() !== "") return kvVal;
+        } catch(e) {}
+    }
+
+    // 4. 返回默认值
+    return fallback;
+}
+
+function closeSocketQuietly(socket) {
     try { 
         if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CLOSING) {
             socket.close(); 
@@ -54,12 +86,12 @@ function parsePryAddress(serverStr) {
     if (!serverStr) return null;
     serverStr = serverStr.trim();
     // 解析 S5
-    if (serverStr.startsWith(_skKey + '://') || serverStr.startsWith(_skKey + '5://')) {
-        const urlStr = serverStr.replace(new RegExp('^' + _skKey + '://'), _skKey + '5://');
+    if (serverStr.startsWith('socks://') || serverStr.startsWith('socks5://')) {
+        const urlStr = serverStr.replace(/^socks:\/\//, 'socks5://');
         try {
             const url = new URL(urlStr);
             return {
-                type: _skKey + '5',
+                type: 'socks5',
                 host: url.hostname,
                 port: parseInt(url.port) || 1080,
                 username: url.username ? decodeURIComponent(url.username) : '',
@@ -203,172 +235,195 @@ function rightRotate(value, amount) {
   return (value >>> amount) | (value << (32 - amount));
 }
 
-const worker = {
-	/**
-	 * @param {import("@cloudflare/workers-types").Request} request
-	 * @param {{UUID: string, uuid: string, PROXYIP: string, PASSWORD: string, PASSWD: string, password: string, proxyip: string, proxyIP: string, SUB_PATH: string, subpath: string, DISABLE_TROJAN: string, CLOSE_TROJAN: string, ROOT_REDIRECT_URL: string, root_redirect_url: string}} env
-	 * @param {import("@cloudflare/workers-types").ExecutionContext} ctx
-	 * @returns {Promise<Response>}
-	 */
+// =============================================================================
+// 🌐 Cloudflare Pages Functions 入口 (兼容 Workers)
+// =============================================================================
+export default {
     async fetch(request, env, ctx) {
-        try {
+        return handleRequest(request, env, ctx);
+    }
+};
 
-			if (subPath === 'link' || subPath === '') {
-				subPath = yourUUID;
-			}
+// Pages Functions 导出 (优先使用)
+export async function onRequest(context) {
+    return handleRequest(context.request, context.env, context);
+}
 
-            if (env.PROXYIP || env.proxyip || env.proxyIP) {
-                const servers = (env.PROXYIP || env.proxyip || env.proxyIP).split(',').map(s => s.trim());
-                pxyAddr = servers[0];
-            }
-            password = env.PASSWORD || env.PASSWD || env.password || password;
-            subPath = env.SUB_PATH || env.subpath || subPath;
-            yourUUID = env.UUID || env.uuid || yourUUID;
-            disabletro = env.DISABLE_TROJAN || env.CLOSE_TROJAN || disabletro;
+// 主请求处理函数
+async function handleRequest(request, env, ctx) {
+    try {
+        // 初始化配置 (从环境变量/D1/KV 读取)
+        yourUUID = await getSafeEnv(env, 'UUID', UUID || yourUUID);
+        password = await getSafeEnv(env, 'WEB_PASSWORD', WEB_PASSWORD || password);
+        const subPassword = await getSafeEnv(env, 'SUB_PASSWORD', SUB_PASSWORD || subPath);
+        proxyIP = await getSafeEnv(env, 'PROXYIP', DEFAULT_PROXY_IP || proxyIP);
+        disabletro = await getSafeEnv(env, 'DISABLE_TROJAN', DISABLE_TROJAN.toString()) === 'true';
+        const redirectUrl = await getSafeEnv(env, 'ROOT_REDIRECT_URL', ROOT_REDIRECT_URL);
 
-            // 加载根路径重定向URL（支持环境变量覆盖）
-            let _rootRedirect = env.ROOT_REDIRECT_URL || env.root_redirect_url || rootRedirectUrl || '';
-            _rootRedirect = _rootRedirect.trim();
-            if (_rootRedirect && !_rootRedirect.includes('://')) _rootRedirect = 'https://' + _rootRedirect;
-            try { if (_rootRedirect) new URL(_rootRedirect); } catch { _rootRedirect = ''; }
+        // 订阅路径处理
+        if (subPath === 'link' || subPath === '') {
+            subPath = subPassword || yourUUID;
+        } else {
+            subPath = subPassword || subPath;
+        }
 
-            const url = new URL(request.url);
-            const pathname = url.pathname;
+        const url = new URL(request.url);
+        const pathname = url.pathname;
 
-            let pathPxy = null;
-            if (pathname.startsWith('/' + _pxKey + 'ip=')) {
+        // =============================================================================
+        // 🛡️ 路径保护与路由规则
+        // =============================================================================
+
+        // 1. WebSocket 代理连接 (最高优先级)
+        if (request.headers.get('Upgrade') === 'websocket') {
+            let wsPathProxyIP = null;
+            const proxyipPrefix = `/${PATH_PROXYIP}=`;
+            if (pathname.startsWith(proxyipPrefix)) {
                 try {
-                    pathPxy = decodeURIComponent(pathname.substring(9)).trim();
-                } catch (e) {
-                    // 忽略错误
-                }
+                    wsPathProxyIP = decodeURIComponent(pathname.substring(proxyipPrefix.length)).trim();
+                } catch (e) {}
+            }
+            const customProxyIP = wsPathProxyIP || url.searchParams.get(PATH_PROXYIP) || request.headers.get(PATH_PROXYIP);
+            return await handleVlsRequest(request, customProxyIP);
+        }
 
-                if (pathPxy && !request.headers.get('Upgrade')) {
-                    pxyAddr = pathPxy;
-                    return new Response(`set ${_pxKey}IP to: ${pxyAddr}\n\n`, {
+        // 2. 订阅路径 (保护订阅接口)
+        if (pathname.toLowerCase().includes(`/${subPath.toLowerCase()}`)) {
+            return handleSubscription(url, yourUUID, disabletro);
+        }
+
+        // 3. 管理页面 (/admin 路径)
+        if (pathname === `/${PATH_ADMIN}` || pathname.startsWith(`/${PATH_ADMIN}/`)) {
+            return getHomePage(request, password, url, yourUUID, subPath);
+        }
+
+        // 4. ProxyIP 设置接口
+        const proxyipPrefix = `/${PATH_PROXYIP}=`;
+        if (pathname.startsWith(proxyipPrefix)) {
+            try {
+                const pathProxyIP = decodeURIComponent(pathname.substring(proxyipPrefix.length)).trim();
+                if (pathProxyIP) {
+                    proxyIP = pathProxyIP;
+                    return new Response(`ProxyIP 已设置为: ${proxyIP}\n`, {
                         headers: {
                             'Content-Type': 'text/plain; charset=utf-8',
                             'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
                         },
                     });
                 }
-            }
-
-            if (request.headers.get('Upgrade') === ('web' + _skKey.slice(0,0) + 'socket')) {
-                let wsPathPxy = null;
-                if (pathname.startsWith('/' + _pxKey + 'ip=')) {
-                    try {
-                        wsPathPxy = decodeURIComponent(pathname.substring(9)).trim();
-                    } catch (e) {
-                        // 忽略错误
-                    }
-                }
-
-                const customPxy = wsPathPxy || url.searchParams.get(_pxKey + 'ip') || request.headers.get(_pxKey + 'ip');
-                return await handleVlsRequest(request, customPxy);
-            } else if (request.method === 'GET') {
-                // 根路径重定向：若配置了重定向URL，则302跳转；否则显示主页
-                if (url.pathname === '/' && _rootRedirect) {
-                    return Response.redirect(_rootRedirect, 302);
-                }
-                if (url.pathname === '/') {
-                    return getHomePage(request);
-                }
-                
-                if (url.pathname.toLowerCase().includes(`/${subPath.toLowerCase()}`)) {
-                    const currentDomain = url.hostname;
-
-                    // 生成主协议节点
-                    const p1Links = cfip.map(cdnItem => {
-                        let host, port = 443, nodeName = '';
-                        if (cdnItem.includes('#')) {
-                            const parts = cdnItem.split('#');
-                            cdnItem = parts[0];
-                            nodeName = parts[1];
-                        }
-
-                        if (cdnItem.startsWith('[') && cdnItem.includes(']:')) {
-                            const ipv6End = cdnItem.indexOf(']:');
-                            host = cdnItem.substring(0, ipv6End + 1);
-                            const portStr = cdnItem.substring(ipv6End + 2);
-                            port = parseInt(portStr) || 443;
-                        } else if (cdnItem.includes(':')) {
-                            const parts = cdnItem.split(':');
-                            host = parts[0];
-                            port = parseInt(parts[1]) || 443;
-                        } else {
-                            host = cdnItem;
-                        }
-
-                        const nName = nodeName ? `${nodeName}-${_pType1}` : `Workers-${_pType1}`;
-                        return `${_pType1}://${yourUUID}@${host}:${port}?encryption=none&security=tls&sni=${currentDomain}&fp=firefox&allowInsecure=0&type=ws&host=${currentDomain}&path=%2F%3Fed%3D2560#${nName}`;
-                    });
-
-                    // 生成备用协议节点
-                    let allLinks = [...p1Links];
-                    if (!disabletro) {
-                        const p2Links = cfip.map(cdnItem => {
-                            let host, port = 443, nodeName = '';
-                            if (cdnItem.includes('#')) {
-                                const parts = cdnItem.split('#');
-                                cdnItem = parts[0];
-                                nodeName = parts[1];
-                            }
-
-                            if (cdnItem.startsWith('[') && cdnItem.includes(']:')) {
-                                const ipv6End = cdnItem.indexOf(']:');
-                                host = cdnItem.substring(0, ipv6End + 1);
-                                const portStr = cdnItem.substring(ipv6End + 2);
-                                port = parseInt(portStr) || 443;
-                            } else if (cdnItem.includes(':')) {
-                                const parts = cdnItem.split(':');
-                                host = parts[0];
-                                port = parseInt(parts[1]) || 443;
-                            } else {
-                                host = cdnItem;
-                            }
-
-                            const nName = nodeName ? `${nodeName}-${_pType2}` : `Workers-${_pType2}`;
-                            return `${_pType2}://${yourUUID}@${host}:${port}?security=tls&sni=${currentDomain}&fp=firefox&allowInsecure=0&type=ws&host=${currentDomain}&path=%2F%3Fed%3D2560#${nName}`;
-                        });
-                        allLinks = [...p1Links, ...p2Links];
-                    }
-                    const linksText = allLinks.join('\n');
-                    const base64Content = btoa(unescape(encodeURIComponent(linksText)));
-                    return new Response(base64Content, {
-                        headers: { 
-                            'Content-Type': 'text/plain; charset=utf-8',
-                            'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
-                        },
-                    });
-                }
-            }
-            return new Response('Not Found', { status: 404 });
-        } catch (err) {
-            return new Response('Internal Server Error', { status: 500 });
+            } catch (e) {}
         }
-    },
-};
 
-// Cloudflare Workers 标准导出
-export default worker;
+        // 5. 根路径处理 (反向代理到 Bing 或重定向)
+        if (pathname === '/' || pathname === '') {
+            if (redirectUrl && redirectUrl.trim() !== '') {
+                return Response.redirect(redirectUrl, 302);
+            }
+            // 反向代理到 Bing 搜索
+            return fetch('https://www.bing.com', {
+                method: request.method,
+                headers: request.headers,
+                body: request.body,
+            });
+        }
 
-// Cloudflare Pages Functions 兼容导出
-export async function onRequest(context) {
-    return worker.fetch(context.request, context.env, context);
+        // 6. 其他未定义路径 - 反向代理到 Bing
+        return fetch(`https://www.bing.com${pathname}${url.search}`, {
+            method: request.method,
+            headers: request.headers,
+            body: request.body,
+        });
+
+    } catch (err) {
+        return new Response('Internal Server Error', { status: 500 });
+    }
 }
 
+// 订阅处理函数
+function handleSubscription(url, uuid, disableTrojan) {
+    const currentDomain = url.hostname;
+
+    // 生成 VLESS 节点
+    const vlsLinks = cfip.map(cdnItem => {
+        let host, port = 443, nodeName = '';
+        if (cdnItem.includes('#')) {
+            const parts = cdnItem.split('#');
+            cdnItem = parts[0];
+            nodeName = parts[1];
+        }
+
+        if (cdnItem.startsWith('[') && cdnItem.includes(']:')) {
+            const ipv6End = cdnItem.indexOf(']:');
+            host = cdnItem.substring(0, ipv6End + 1);
+            const portStr = cdnItem.substring(ipv6End + 2);
+            port = parseInt(portStr) || 443;
+        } else if (cdnItem.includes(':')) {
+            const parts = cdnItem.split(':');
+            host = parts[0];
+            port = parseInt(parts[1]) || 443;
+        } else {
+            host = cdnItem;
+        }
+
+        const vlsNodeName = nodeName ? `${nodeName}-${PT_VLESS}` : `Workers-${PT_VLESS}`;
+        return `${PT_VLESS}://${uuid}@${host}:${port}?encryption=none&security=tls&sni=${currentDomain}&fp=firefox&allowInsecure=0&type=ws&host=${currentDomain}&path=%2F%3Fed%3D2560#${vlsNodeName}`;
+    });
+
+    // 生成 Trojan 节点
+    let allLinks = [...vlsLinks];
+    if (!disableTrojan) {
+        const troLinks = cfip.map(cdnItem => {
+            let host, port = 443, nodeName = '';
+            if (cdnItem.includes('#')) {
+                const parts = cdnItem.split('#');
+                cdnItem = parts[0];
+                nodeName = parts[1];
+            }
+
+            if (cdnItem.startsWith('[') && cdnItem.includes(']:')) {
+                const ipv6End = cdnItem.indexOf(']:');
+                host = cdnItem.substring(0, ipv6End + 1);
+                const portStr = cdnItem.substring(ipv6End + 2);
+                port = parseInt(portStr) || 443;
+            } else if (cdnItem.includes(':')) {
+                const parts = cdnItem.split(':');
+                host = parts[0];
+                port = parseInt(parts[1]) || 443;
+            } else {
+                host = cdnItem;
+            }
+
+            const troNodeName = nodeName ? `${nodeName}-${PT_TROJAN}` : `Workers-${PT_TROJAN}`;
+            return `${PT_TROJAN}://${uuid}@${host}:${port}?security=tls&sni=${currentDomain}&fp=firefox&allowInsecure=0&type=ws&host=${currentDomain}&path=%2F%3Fed%3D2560#${troNodeName}`;
+        });
+        allLinks = [...vlsLinks, ...troLinks];
+    }
+
+    const linksText = allLinks.join('\n');
+    // 使用 TextEncoder 替代已弃用的 unescape
+    const encoder = new TextEncoder();
+    const data = encoder.encode(linksText);
+    const base64Content = btoa(String.fromCharCode(...data));
+    return new Response(base64Content, {
+        headers: {
+            'Content-Type': 'text/plain; charset=utf-8',
+            'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+        },
+    });
+}
+
+
 /**
- *
+ * 
  * @param {import("@cloudflare/workers-types").Request} request
  */
-async function handleVlsRequest(request, customPxy) {
+async function handleVlsRequest(request, customProxyIP) {
     const wssPair = new WebSocketPair();
     const [clientSock, serverSock] = Object.values(wssPair);
     serverSock.accept();
     let remoteConnWrapper = { socket: null };
     let isDnsQuery = false;
-    let isP2 = false;
+    let isTrojan = false;
     const earlyData = request.headers.get('sec-websocket-protocol') || '';
     const readable = makeReadableStr(serverSock, earlyData);
 
@@ -383,16 +438,16 @@ async function handleVlsRequest(request, customPxy) {
             }
             
             if (!disabletro) {
-                const p2Result = await parsetroHeader(chunk, yourUUID);
-                if (!p2Result.hasError) {
-                    isP2 = true;
-                    const { addressType, port, hostname, rawClientData } = p2Result;
+                const trojanResult = await parsetroHeader(chunk, yourUUID);
+                if (!trojanResult.hasError) {
+                    isTrojan = true;
+                    const { addressType, port, hostname, rawClientData } = trojanResult;
                     
                     if (isSpeedTestSite(hostname)) {
                         throw new Error('Speedtest site is blocked');
                     }
                     
-                    await forwardataTCP(hostname, port, rawClientData, serverSock, null, remoteConnWrapper, customPxy);
+                    await forwardataTCP(hostname, port, rawClientData, serverSock, null, remoteConnWrapper, customProxyIP);
                     return;
                 }
             }
@@ -411,7 +466,7 @@ async function handleVlsRequest(request, customPxy) {
             const respHeader = new Uint8Array([version[0], 0]);
             const rawData = chunk.slice(rawIndex);
             if (isDnsQuery) return forwardataudp(rawData, serverSock, respHeader);
-            await forwardataTCP(hostname, port, rawData, serverSock, respHeader, remoteConnWrapper, customPxy);
+            await forwardataTCP(hostname, port, rawData, serverSock, respHeader, remoteConnWrapper, customProxyIP);
         },
     })).catch((err) => {
         // console.error('Readable pipe error:', err);
@@ -615,7 +670,7 @@ async function connect2Http(proxyConfig, targetHost, targetPort, initialData) {
             throw new Error(`Connection failed: ${statusLine}`);
         }
         
-        console.log('HTTP connection established for ' + _pType2);
+        console.log('HTTP connection established for Trojan');
         
         await writer.write(initialData);
         writer.releaseLock();
@@ -636,7 +691,7 @@ async function connect2Http(proxyConfig, targetHost, targetPort, initialData) {
     }
 }
 
-async function forwardataTCP(host, portNum, rawData, ws, respHeader, remoteConnWrapper, customPxy) {
+async function forwardataTCP(host, portNum, rawData, ws, respHeader, remoteConnWrapper, customProxyIP) {
     async function connectDirect(address, port, data) {
         const remoteSock = connect({ hostname: address, port: port });
         const writer = remoteSock.writable.getWriter();
@@ -644,26 +699,26 @@ async function forwardataTCP(host, portNum, rawData, ws, respHeader, remoteConnW
         writer.releaseLock();
         return remoteSock;
     }
-
+    
     let proxyConfig = null;
     let shouldUseProxy = false;
-    if (customPxy) {
-        proxyConfig = parsePryAddress(customPxy);
-        if (proxyConfig && (proxyConfig.type === (_skKey + '5') || proxyConfig.type === 'http' || proxyConfig.type === 'https')) {
+    if (customProxyIP) {
+        proxyConfig = parsePryAddress(customProxyIP);
+        if (proxyConfig && (proxyConfig.type === 'socks5' || proxyConfig.type === 'http' || proxyConfig.type === 'https')) {
             shouldUseProxy = true;
         } else if (!proxyConfig) {
-            proxyConfig = parsePryAddress(pxyAddr) || { type: 'direct', host: pxyAddr, port: 443 };
+            proxyConfig = parsePryAddress(proxyIP) || { type: 'direct', host: proxyIP, port: 443 };
         }
     } else {
-        proxyConfig = parsePryAddress(pxyAddr) || { type: 'direct', host: pxyAddr, port: 443 };
-        if (proxyConfig.type === (_skKey + '5') || proxyConfig.type === 'http' || proxyConfig.type === 'https') {
+        proxyConfig = parsePryAddress(proxyIP) || { type: 'direct', host: proxyIP, port: 443 };
+        if (proxyConfig.type === 'socks5' || proxyConfig.type === 'http' || proxyConfig.type === 'https') {
             shouldUseProxy = true;
         }
     }
-
+    
     async function connecttoPry() {
         let newSocket;
-        if (proxyConfig.type === (_skKey + '5')) {
+        if (proxyConfig.type === 'socks5') {
             newSocket = await connect2Socks5(proxyConfig, host, portNum, rawData);
         } else if (proxyConfig.type === 'http' || proxyConfig.type === 'https') {
             newSocket = await connect2Http(proxyConfig, host, portNum, rawData);
@@ -784,20 +839,20 @@ async function connectStreams(remoteSocket, webSocket, headerData, retryFunc) {
 async function forwardataudp(udpChunk, webSocket, respHeader) {
     try {
         const tcpSocket = connect({ hostname: '8.8.4.4', port: 53 });
-        let respHdr = respHeader;
+        let vlessHeader = respHeader;
         const writer = tcpSocket.writable.getWriter();
         await writer.write(udpChunk);
         writer.releaseLock();
         await tcpSocket.readable.pipeTo(new WritableStream({
             async write(chunk) {
                 if (webSocket.readyState === WebSocket.OPEN) {
-                    if (respHdr) {
-                        const response = new Uint8Array(respHdr.length + chunk.byteLength);
-                        response.set(respHdr, 0);
-                        response.set(chunk, respHdr.length);
+                    if (vlessHeader) { 
+                        const response = new Uint8Array(vlessHeader.length + chunk.byteLength);
+                        response.set(vlessHeader, 0);
+                        response.set(chunk, vlessHeader.length);
                         webSocket.send(response.buffer);
-                        respHdr = null;
-                    } else {
+                        vlessHeader = null; 
+                    } else { 
                         webSocket.send(chunk); 
                     }
                 }
@@ -809,22 +864,27 @@ async function forwardataudp(udpChunk, webSocket, respHeader) {
 }
 
 /**
- * @param {import("@cloudflare/workers-types").Request} request
+ * 获取管理主页 (登录页或控制面板)
+ * @param {Request} request
+ * @param {string} pwd - 管理密码
+ * @param {URL} url - URL 对象
+ * @param {string} uuid - UUID
+ * @param {string} subPath - 订阅路径
  * @returns {Response}
  */
-function getHomePage(request) {
-	const url = request.headers.get('Host');
-	const baseUrl = `https://${url}`;
-	const urlObj = new URL(request.url);
-	const providedPassword = urlObj.searchParams.get('password');
-	if (providedPassword) {
-		if (providedPassword === password) {
-			return getMainPageContent(url, baseUrl);
-		} else {
-			return getLoginPage(url, baseUrl, true);
-		}
-	}
-	return getLoginPage(url, baseUrl, false);
+function getHomePage(request, pwd, url, uuid, subPath) {
+    const hostname = url.hostname;
+    const baseUrl = `https://${hostname}`;
+    const providedPassword = url.searchParams.get(PARAM_PASSWORD);
+
+    if (providedPassword) {
+        if (providedPassword === pwd) {
+            return getMainPageContent(hostname, baseUrl, uuid, subPath);
+        } else {
+            return getLoginPage(hostname, baseUrl, true);
+        }
+    }
+    return getLoginPage(hostname, baseUrl, false);
 }
 
 /**
@@ -1020,11 +1080,13 @@ function getLoginPage(url, baseUrl, showError = false) {
 
 /**
  * 获取主页内容(密码验证通过后显示)
- * @param {string} url 
- * @param {string} baseUrl 
+ * @param {string} hostname - 主机名
+ * @param {string} baseUrl - 基础URL
+ * @param {string} uuid - UUID
+ * @param {string} subPath - 订阅路径
  * @returns {Response}
  */
-function getMainPageContent(url, baseUrl) {
+function getMainPageContent(hostname, baseUrl, uuid, subPath) {
 	const html = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -1376,7 +1438,7 @@ function getMainPageContent(url, baseUrl) {
     <div class="container">
         <div class="logo"><img src="https://img.icons8.com/color/96/cloudflare.png" alt="Logo"></div>
         <h1 class="title">Workers Service</h1>
-        <p class="subtitle">基于 Cloudflare Workers 的高性能网络服务 (${_pType1.toUpperCase()} + ${_pType2.charAt(0).toUpperCase() + _pType2.slice(1)})</p>
+        <p class="subtitle">基于 Cloudflare Workers 的高性能网络服务 (VLESS + Trojan)</p>
         
         <div class="info-card">
             <div class="info-item">
@@ -1385,11 +1447,11 @@ function getMainPageContent(url, baseUrl) {
             </div>
             <div class="info-item">
                 <span class="label">主机地址</span>
-                <span class="value">${url}</span>
+                <span class="value">${hostname}</span>
             </div>
             <div class="info-item">
                 <span class="label">UUID</span>
-                <span class="value">${yourUUID}</span>
+                <span class="value">${uuid}</span>
             </div>
             <div class="info-item">
                 <span class="label">V2rayN订阅地址</span>
@@ -1413,15 +1475,15 @@ function getMainPageContent(url, baseUrl) {
         
         <div class="footer">
             <div class="footer-links">
-                <a href="https://gi${''+'thub'}.com/eooce/CF-Workers-${_pType1.toUpperCase()}" target="_blank" class="footer-link">
+                <a href="https://github.com/eooce/CF-Workers-VLESS" target="_blank" class="footer-link">
                     <svg class="github-icon" viewBox="0 0 24 24">
                         <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.479-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
                     </svg>
                     <span>GitHub 项目地址</span>
                 </a>
-                <a href="https://check-${_pxKey}ip.ssss.nyc.mn/" target="_blank" class="footer-link">
+                <a href="https://check-proxyip.ssss.nyc.mn/" target="_blank" class="footer-link">
                     <span>✅</span>
-                    <span>${_pxKey.charAt(0).toUpperCase() + _pxKey.slice(1)}ip 检测服务</span>
+                    <span>Proxyip 检测服务</span>
                 </a>
                 <a href="https://t.me/eooceu" target="_blank" class="footer-link">
                     <span>📱</span>
