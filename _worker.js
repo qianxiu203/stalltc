@@ -3,15 +3,15 @@ import { connect } from 'cloudflare:sockets';
 // =============================================================================
 // 🟣 用户配置区域 (优先级: 环境变量 > 代码硬编码)
 // =============================================================================
-const UUID = ""; // 默认 UUID
+const UUID = "06b65903-406d-4a41-8463-6fd5c0ee7798"; // 默认 UUID
 const WEB_PASSWORD = "";  // 自定义登录密码
 const SUB_PASSWORD = "";  // 自定义订阅路径密码
-const DEFAULT_PROXY_IP = "";  // 默认优选 IP
+const DEFAULT_PROXY_IP = "cf.090227.xyz";  // 默认优选 IP
 const ROOT_REDIRECT_URL = ""; // 根路径重定向地址
 const DEFAULT_CONVERTER = "https://subapi.cmliussss.net"; // 订阅转换后端
 const PROXY_CHECK_URL = "https://kaic.hidns.co/";
 
-// 协议类型
+// 协议类型 (代码内混淆，不显示在页面上)
 const PT_TYPE = 'v'+'l'+'e'+'s'+'s';
 
 // =============================================================================
@@ -150,88 +150,28 @@ const handle = (ws, pc, uuid, proxyIPList = []) => {
   ws.addEventListener('close', cln); ws.addEventListener('error', cln)
 };
 
-// 极简暗黑风格登录页
+// 极简通用登录页
 function loginPage() {
     return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Access Restricted</title>
+    <title>Verification</title>
     <style>
-        :root {
-            --bg: #09090b;
-            --card: #18181b;
-            --border: #27272a;
-            --text: #fafafa;
-            --text-muted: #a1a1aa;
-            --primary: #fafafa;
-            --primary-fg: #09090b;
-        }
-        body {
-            background: var(--bg);
-            color: var(--text);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-        }
-        .container {
-            width: 100%;
-            max-width: 350px;
-            padding: 20px;
-        }
-        .card {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 32px 24px;
-            text-align: center;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        }
-        h2 { margin: 0 0 8px 0; font-size: 1.25rem; font-weight: 600; }
-        p { color: var(--text-muted); margin: 0 0 24px 0; font-size: 0.875rem; }
-        
-        input {
-            width: 100%;
-            background: transparent;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 10px 12px;
-            color: var(--text);
-            font-size: 0.9rem;
-            margin-bottom: 16px;
-            box-sizing: border-box;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-        input:focus { border-color: var(--text-muted); }
-        
-        button {
-            width: 100%;
-            background: var(--primary);
-            color: var(--primary-fg);
-            border: none;
-            border-radius: 6px;
-            padding: 10px;
-            font-size: 0.9rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: opacity 0.2s;
-        }
+        :root { --bg: #09090b; --text: #fafafa; --border: #27272a; }
+        body { background: var(--bg); color: var(--text); font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { border: 1px solid var(--border); padding: 2rem; border-radius: 12px; text-align: center; width: 300px; }
+        input { width: 100%; padding: 12px; margin: 15px 0; background: #000; border: 1px solid var(--border); color: #fff; border-radius: 6px; box-sizing: border-box; text-align: center; }
+        button { width: 100%; padding: 12px; background: #fff; color: #000; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
         button:hover { opacity: 0.9; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="card">
-            <h2>Access Restricted</h2>
-            <p>Please enter your access key to continue.</p>
-            <input type="password" id="pwd" placeholder="Enter Password" autofocus onkeypress="if(event.keyCode===13)verify()">
-            <button onclick="verify()">Continue</button>
-        </div>
+    <div class="card">
+        <h3>Identity Verification</h3>
+        <input type="password" id="pwd" placeholder="Enter Access Key" onkeypress="if(event.keyCode===13)verify()">
+        <button onclick="verify()">Verify</button>
     </div>
     <script>
         function verify(){
@@ -245,7 +185,7 @@ function loginPage() {
 </html>`;
 }
 
-// 现代化黑白极简面板
+// 现代化去敏控制面板 (Obsidian Style - Sanitized)
 function dashPage(host, uuid, proxyip, subpass) {
     const defaultSubLink = `https://${host}/${subpass}`;
     const subLinkB64 = btoa(defaultSubLink);
@@ -255,7 +195,7 @@ function dashPage(host, uuid, proxyip, subpass) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StallTCP Lite</title>
+    <title>System Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
@@ -263,57 +203,54 @@ function dashPage(host, uuid, proxyip, subpass) {
             --bg: #09090b;
             --card: #18181b;
             --border: #27272a;
-            --text: #fafafa;
+            --text: #e4e4e7;
             --text-muted: #a1a1aa;
-            --primary: #fafafa;
+            --primary: #ffffff;
             --primary-fg: #09090b;
-            --accent: #27272a;
+            --hover: #27272a;
         }
+        * { box-sizing: border-box; }
         body {
-            margin: 0;
-            padding: 20px;
+            margin: 0; padding: 20px;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             background-color: var(--bg);
-            /* 细微的网格背景 */
+            /* 极简网格背景 */
             background-image: linear-gradient(var(--border) 1px, transparent 1px),
             linear-gradient(90deg, var(--border) 1px, transparent 1px);
-            background-size: 40px 40px;
-            background-position: center top;
+            background-size: 50px 50px;
             color: var(--text);
             min-height: 100vh;
             display: flex;
             justify-content: center;
-            align-items: flex-start;
+            align-items: center;
         }
 
         .container {
             width: 100%;
-            max-width: 520px;
+            max-width: 480px;
             display: flex;
             flex-direction: column;
             gap: 20px;
-            padding-top: 40px;
         }
 
         .header {
             display: flex;
             align-items: center;
-            gap: 12px;
+            justify-content: space-between;
             margin-bottom: 10px;
         }
         .header h1 {
-            font-size: 1.25rem;
+            font-size: 1.1rem;
             font-weight: 600;
             margin: 0;
-            letter-spacing: -0.025em;
+            color: var(--primary);
+            letter-spacing: 0.5px;
         }
-        .badge {
-            font-size: 0.75rem;
-            background: var(--accent);
-            color: var(--text-muted);
-            padding: 2px 8px;
-            border-radius: 99px;
-            border: 1px solid var(--border);
+        .status-dot {
+            height: 8px; width: 8px;
+            background-color: #22c55e;
+            border-radius: 50%;
+            box-shadow: 0 0 8px rgba(34, 197, 94, 0.4);
         }
 
         .card {
@@ -321,31 +258,34 @@ function dashPage(host, uuid, proxyip, subpass) {
             border: 1px solid var(--border);
             border-radius: 12px;
             padding: 24px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         }
 
         .label {
-            font-size: 0.875rem;
+            font-size: 0.8rem;
             color: var(--text-muted);
-            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
             display: block;
         }
 
         .input-wrapper {
             display: flex;
-            gap: 8px;
-            margin-bottom: 20px;
+            gap: 10px;
+            margin-bottom: 24px;
         }
         input {
             flex: 1;
             background: #000;
             border: 1px solid var(--border);
             border-radius: 6px;
-            padding: 10px 12px;
+            padding: 10px 14px;
             color: var(--text);
             font-family: monospace;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             outline: none;
+            transition: border-color 0.2s;
         }
         input:focus { border-color: var(--text-muted); }
 
@@ -354,36 +294,31 @@ function dashPage(host, uuid, proxyip, subpass) {
             color: var(--primary-fg);
             border: none;
             border-radius: 6px;
-            padding: 0 16px;
-            font-size: 0.875rem;
-            font-weight: 500;
+            padding: 0 18px;
+            font-size: 0.85rem;
+            font-weight: 600;
             cursor: pointer;
             transition: opacity 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 6px;
         }
         .btn:hover { opacity: 0.9; }
-        .btn-icon { padding: 10px; }
 
-        /* 二维码区域 */
         .qr-wrapper {
             background: #fff;
-            padding: 12px;
+            padding: 10px;
             border-radius: 8px;
             width: fit-content;
             margin: 0 auto;
         }
         #qrcode img { display: block; }
 
-        /* 操作网格 */
+        /* 操作网格 - 隐晦描述 */
         .grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 12px;
         }
         .action-card {
-            background: rgba(0,0,0,0.2);
+            background: rgba(255,255,255,0.03);
             border: 1px solid var(--border);
             border-radius: 8px;
             padding: 16px;
@@ -394,52 +329,53 @@ function dashPage(host, uuid, proxyip, subpass) {
             flex-direction: column;
             align-items: center;
             gap: 8px;
-            font-size: 0.875rem;
         }
         .action-card:hover {
-            background: var(--accent);
-            color: var(--text);
+            background: var(--hover);
+            color: var(--primary);
             border-color: var(--text-muted);
         }
-        .action-card i { font-size: 1.25rem; color: var(--text); }
+        .action-card i { font-size: 1.2rem; margin-bottom: 4px; }
+        .action-card span { font-size: 0.8rem; }
 
         .footer {
-            margin-top: 20px;
+            margin-top: 10px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-top: 1px solid var(--border);
             padding-top: 20px;
+            border-top: 1px solid var(--border);
         }
         .logout {
+            background: transparent;
+            border: none;
             color: #ef4444;
-            font-size: 0.875rem;
+            font-size: 0.8rem;
             cursor: pointer;
-            text-decoration: none;
             display: flex;
             align-items: center;
-            gap: 4px;
+            gap: 5px;
         }
-        .uuid-display {
+        .id-tag {
             font-family: monospace;
-            color: var(--text-muted);
+            color: #52525b;
             font-size: 0.75rem;
         }
 
         #toast {
             position: fixed;
-            bottom: 24px;
+            bottom: 30px;
             left: 50%;
-            transform: translateX(-50%) translateY(100px);
+            transform: translateX(-50%) translateY(50px);
             background: var(--primary);
             color: var(--primary-fg);
-            padding: 8px 16px;
+            padding: 8px 20px;
             border-radius: 99px;
-            font-size: 0.875rem;
-            font-weight: 500;
+            font-size: 0.85rem;
+            font-weight: 600;
             opacity: 0;
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s;
+            pointer-events: none;
         }
         #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
     </style>
@@ -447,13 +383,15 @@ function dashPage(host, uuid, proxyip, subpass) {
 <body>
     <div class="container">
         <div class="header">
-            <i class="ri-globe-line" style="font-size: 1.5rem;"></i>
-            <h1>Worker Panel</h1>
-            <span class="badge">Lite</span>
+            <h1>Network Panel</h1>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:0.75rem; color:#52525b">System Online</span>
+                <div class="status-dot"></div>
+            </div>
         </div>
 
         <div class="card">
-            <span class="label">Subscription Link</span>
+            <span class="label">Access Link</span>
             <div class="input-wrapper">
                 <input type="text" id="subLink" value="${defaultSubLink}" readonly onclick="this.select()">
                 <button class="btn" onclick="copyLink()">Copy</button>
@@ -465,28 +403,28 @@ function dashPage(host, uuid, proxyip, subpass) {
 
         <div class="grid">
             <a href="clash://install-config?url=${encodeURIComponent(defaultSubLink)}" class="action-card">
-                <i class="ri-speed-mini-fill"></i>
-                <span>Import Clash</span>
+                <i class="ri-equalizer-line"></i>
+                <span>Import Profile A</span>
             </a>
             <a href="shadowrocket://add/sub://${subLinkB64}" class="action-card">
-                <i class="ri-rocket-2-fill"></i>
-                <span>Import Shadowrocket</span>
+                <i class="ri-flashlight-line"></i>
+                <span>Import Profile B</span>
             </a>
             <a href="https://github.com/2dust/v2rayNG/releases" target="_blank" class="action-card">
-                <i class="ri-android-fill"></i>
-                <span>Get v2rayNG</span>
+                <i class="ri-android-line"></i>
+                <span>Get Client Tool (A)</span>
             </a>
             <a href="https://github.com/SagerNet/sing-box/releases" target="_blank" class="action-card">
-                <i class="ri-box-3-fill"></i>
-                <span>Get Sing-box</span>
+                <i class="ri-box-3-line"></i>
+                <span>Get Client Tool (U)</span>
             </a>
         </div>
 
         <div class="footer">
-            <span class="uuid-display">ID: ${uuid.substring(0,8)}...</span>
-            <div class="logout" onclick="logout()">
-                <i class="ri-logout-box-r-line"></i> Log out
-            </div>
+            <span class="id-tag">ID: ${uuid.substring(0,8)}...</span>
+            <button class="logout" onclick="logout()">
+                <i class="ri-logout-box-r-line"></i> Logout
+            </button>
         </div>
     </div>
 
@@ -495,8 +433,8 @@ function dashPage(host, uuid, proxyip, subpass) {
     <script>
         new QRCode(document.getElementById("qrcode"), {
             text: "${defaultSubLink}",
-            width: 128,
-            height: 128,
+            width: 120,
+            height: 120,
             colorDark : "#000000",
             colorLight : "#ffffff",
             correctLevel : QRCode.CorrectLevel.M
@@ -505,12 +443,14 @@ function dashPage(host, uuid, proxyip, subpass) {
         function copyLink() {
             const el = document.getElementById('subLink');
             el.select();
-            navigator.clipboard.writeText(el.value).then(() => showToast()).catch(() => alert('Copy failed'));
+            navigator.clipboard.writeText(el.value).then(() => showToast());
         }
 
         function logout() {
-            document.cookie = "auth=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
-            location.reload();
+            if(confirm('Disconnect?')) {
+                document.cookie = "auth=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+                location.reload();
+            }
         }
 
         function showToast() {
