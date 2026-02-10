@@ -462,4 +462,130 @@ function dashPage(host, uuid, proxyip, subpass) {
         function showToast() {
             const t = document.getElementById('toast');
             t.classList.add('show');
-            setTimeout(() => t.classList.remove('show'), 2000
+            setTimeout(() => t.classList.remove('show'), 2000);
+        }
+    </script>
+</body>
+</html>`;
+}
+
+export default {
+  async fetch(r, env, ctx) {
+    try {
+      const url = new URL(r.url);
+      const host = url.hostname; 
+      const clientIP = r.headers.get('cf-connecting-ip');
+
+      // 加载变量
+      const _UUID = env.KEY ? await getDynamicUUID(env.KEY, env.UUID_REFRESH || 86400) : (await getSafeEnv(env, 'UUID', UUID));
+      const _WEB_PW = await getSafeEnv(env, 'WEB_PASSWORD', WEB_PASSWORD);
+      const _SUB_PW = await getSafeEnv(env, 'SUB_PASSWORD', SUB_PASSWORD);
+      const _PROXY_IP = await getSafeEnv(env, 'PROXYIP', DEFAULT_PROXY_IP);
+      const _PS = await getSafeEnv(env, 'PS', ""); 
+      
+      let _ROOT_REDIRECT_URL = await getSafeEnv(env, 'ROOT_REDIRECT_URL', ROOT_REDIRECT_URL);
+      if (_ROOT_REDIRECT_URL && !_ROOT_REDIRECT_URL.includes('://')) _ROOT_REDIRECT_URL = 'https://' + _ROOT_REDIRECT_URL;
+
+      // 身份鉴权 (用于面板访问)
+      let isAuthorized = false;
+      if (_WEB_PW) {
+        const cookie = r.headers.get('Cookie') || "";
+        const regex = new RegExp(`auth=${_WEB_PW.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(;|$)`);
+        if (regex.test(cookie)) isAuthorized = true;
+      }
+
+      if (url.pathname === '/favicon.ico') return new Response(null, { status: 404 });
+
+      // 根路径重定向
+      if (url.pathname === '/' && r.headers.get('Upgrade') !== 'websocket') {
+          if(_ROOT_REDIRECT_URL) return Response.redirect(_ROOT_REDIRECT_URL, 302);
+          // 如果没有重定向链接，且有密码，跳转到 admin
+          if(_WEB_PW) return Response.redirect(`https://${host}/admin`, 302);
+      }
+
+      // 🟢 订阅接口 (通过 Path 访问)
+      if (_SUB_PW && url.pathname === `/${_SUB_PW}`) {
+          const requestProxyIp = url.searchParams.get('proxyip') || _PROXY_IP;
+          const allIPs = await getCustomIPs(env);
+          const listText = genNodes(host, _UUID, requestProxyIp, allIPs, _PS);
+          return new Response(btoa(unescape(encodeURIComponent(listText))), { status: 200, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+      }
+
+      // 🟢 订阅接口 (通过 /sub 访问)
+      if (url.pathname === '/sub') {
+          const requestUUID = url.searchParams.get('uuid');
+          if (requestUUID !== _UUID) return new Response('Invalid UUID', { status: 403 });
+          
+          let proxyIp = url.searchParams.get('proxyip') || _PROXY_IP;
+          const allIPs = await getCustomIPs(env);
+          const listText = genNodes(host, _UUID, proxyIp, allIPs, _PS);
+          return new Response(btoa(unescape(encodeURIComponent(listText))), { status: 200, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+      }
+
+      // 🟢 简易面板逻辑 (HTTP)
+      if (url.pathname === '/admin' && r.headers.get('Upgrade') !== 'websocket') {
+        const noCacheHeaders = { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' };
+        if (_WEB_PW && !isAuthorized) {
+            return new Response(loginPage(), { status: 200, headers: noCacheHeaders });
+        }
+        return new Response(dashPage(host, _UUID, _PROXY_IP, _SUB_PW), { status: 200, headers: noCacheHeaders });
+      }
+      
+      // 🟣 代理逻辑 (WebSocket)
+      let proxyIPConfig = null;
+      if (url.pathname.includes('/proxyip=')) {
+        try {
+          const proxyParam = url.pathname.split('/proxyip=')[1].split('/')[0];
+          const [address, port] = await parseIP(proxyParam); 
+          proxyIPConfig = { address, port: +port }; 
+        } catch (e) {}
+      }
+
+      // 解析全局 ProxyIP 列表
+      const globalProxyIPs = await parseProxyList(_PROXY_IP);
+      const { 0: c, 1: s } = new WebSocketPair();
+      s.accept(); 
+      handle(s, proxyIPConfig, _UUID, globalProxyIPs); 
+      return new Response(null, { status: 101, webSocket: c });
+
+    } catch (err) {
+      return new Response(err.toString(), { status: 500 });
+    }
+  }
+};
+
+async function getCustomIPs(env) {
+    let ips = await getSafeEnv(env, 'ADD', "");
+    const addApi = await getSafeEnv(env, 'ADDAPI', "");
+    const addCsv = await getSafeEnv(env, 'ADDCSV', "");
+    
+    if (addApi) {
+        const urls = addApi.split('\n').filter(u => u.trim() !== "");
+        for (const url of urls) {
+            try { const res = await fetch(url.trim(), { headers: { 'User-Agent': 'Mozilla/5.0' } }); if (res.ok) { const text = await res.text(); ips += "\n" + text; } } catch (e) {}
+        }
+    }
+    
+    if (addCsv) {
+        const urls = addCsv.split('\n').filter(u => u.trim() !== "");
+        for (const url of urls) {
+            try { const res = await fetch(url.trim(), { headers: { 'User-Agent': 'Mozilla/5.0' } }); if (res.ok) { const text = await res.text(); const lines = text.split('\n'); for (let line of lines) { const parts = line.split(','); if (parts.length >= 2) ips += `\n${parts[0].trim()}:443#${parts[1].trim()}`; } } } catch (e) {}
+        }
+    }
+    return ips;
+}
+
+function genNodes(h, u, p, ipsText, ps = "") {
+    let l = ipsText.split('\n').filter(line => line.trim() !== "");
+    const cleanedProxyIP = p ? p.replace(/\n/g, ',') : '';
+    const P = cleanedProxyIP ? `/proxyip=${cleanedProxyIP.trim()}` : "/";
+    const E = encodeURIComponent(P);
+    return l.map(L => {
+        const [a, n] = L.split('#'); if (!a) return "";
+        const I = a.trim(); 
+        let N = n ? n.trim() : 'Worker-Node';
+        if (ps) N = `${N} ${ps}`;
+        let i = I, pt = "443"; if (I.includes(':') && !I.includes('[')) { const s = I.split(':'); i = s[0]; pt = s[1]; }
+        return `${PT_TYPE}://${u}@${i}:${pt}?encryption=none&security=tls&sni=${h}&alpn=h3&fp=random&allowInsecure=1&type=ws&host=${h}&path=${E}#${encodeURIComponent(N)}`
+    }).join('\n');
+}
