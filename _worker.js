@@ -3,10 +3,10 @@ import { connect } from 'cloudflare:sockets';
 // =============================================================================
 // 🟣 用户配置区域 (优先级: 环境变量 > 代码硬编码)
 // =============================================================================
-const UUID = "06b65903-406d-4a41-8463-6fd5c0ee7798"; // 默认 UUID
+const UUID = ""; // 默认 UUID
 const WEB_PASSWORD = "";  // 自定义登录密码
 const SUB_PASSWORD = "";  // 自定义订阅路径密码
-const DEFAULT_PROXY_IP = "cf.090227.xyz";  // 默认优选 IP
+const DEFAULT_PROXY_IP = "";  // 默认优选 IP
 const ROOT_REDIRECT_URL = ""; // 根路径重定向地址
 const DEFAULT_CONVERTER = "https://subapi.cmliussss.net"; // 订阅转换后端
 const PROXY_CHECK_URL = "https://kaic.hidns.co/";
