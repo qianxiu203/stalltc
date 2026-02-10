@@ -7,7 +7,7 @@ const UUID = ""; // 你的 UUID
 const WEB_PASSWORD = "";  // 管理面板密码
 const SUB_PASSWORD = "";  // 订阅路径密码
 const DEFAULT_PROXY_IP = "";  // 默认回退 ProxyIP (例如: 1.2.3.4 或 domain.com)
-const ROOT_REDIRECT_URL = ""; 
+const ROOT_REDIRECT_URL = "https://www.google.com"; 
 
 // =============================================================================
 // ⚡️ 核心逻辑区
@@ -101,7 +101,7 @@ const handle = (ws, proxyConfig, uuid) => {
   
   // 🟢 智能连接逻辑 (Direct -> Fallback Proxy)
   const cn = async () => {
-    // 1. 尝试直连 (带 2.5秒 超时控制，实现快速失败)
+    // 1. 尝试直连 (带 2.5秒 超时控制)
     try {
         const directPromise = connect({ hostname: inf.host, port: inf.port });
         const direct = await Promise.race([
@@ -279,16 +279,14 @@ async function getCustomIPs(env) {
 function genNodes(h, u, p, ipsText, ps = "") {
     let l = ipsText.split('\n').filter(line => line.trim() !== "");
     
-    // 🟢 优化 1: 构建标准的 Path 参数
-    // 默认开启 ed=2560 (Early Data) 优化握手延迟
-    let basePath = "/?ed=2560";
-    
-    // 如果有 ProxyIP，则以标准 URL 参数形式追加
+    // 🟢 优化: 移除 ed=2560，直接使用标准的 ProxyIP 参数格式
+    // 如果存在 ProxyIP (p)，则追加到查询参数中
+    let basePath = "/";
     if (p && p.trim() !== "") {
-        basePath += `&proxyip=${p.trim()}`;
+        basePath += `?proxyip=${p.trim()}`;
     }
     
-    // 🟢 优化 2: 对整个 Path 进行 URI 编码，防止客户端解析错误
+    // 对整个 Path 进行 URI 编码
     const encodedPath = encodeURIComponent(basePath);
 
     return l.map(L => {
@@ -310,7 +308,6 @@ function genNodes(h, u, p, ipsText, ps = "") {
             pt = s[1];
         }
         
-        // 使用优化后的 encodedPath
         return `${PT_TYPE}://${u}@${i}:${pt}?encryption=none&security=tls&sni=${h}&alpn=h3&fp=random&allowInsecure=1&type=ws&host=${h}&path=${encodedPath}#${encodeURIComponent(N)}`
     }).join('\n');
 }
