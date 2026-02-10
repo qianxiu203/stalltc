@@ -6,8 +6,8 @@ import { connect } from 'cloudflare:sockets';
 const UUID = ""; // 默认 UUID (建议在环境变量中设置)
 const WEB_PASSWORD = "";  // 后台管理密码 (必填，否则无法进入后台)
 const SUB_PASSWORD = "";  // 订阅路径密码 (可选，建议设置)
-const DEFAULT_PROXY_IP = "cf.090227.xyz";  // 默认优选 IP/域名
-const ROOT_REDIRECT_URL = "https://cn.bing.com"; // 根路径重定向地址
+const DEFAULT_PROXY_IP = "";  // 默认优选 IP/域名
+const ROOT_REDIRECT_URL = "https://www.google.com"; // 根路径重定向地址
 
 // =============================================================================
 // ⚡️ 核心逻辑区 (无状态版)
@@ -154,84 +154,118 @@ const handle = (ws, pc, uuid, proxyIPList = []) => {
 };
 
 // =============================================================================
-// 🖥️ 现代化面板代码 (黑白灰风格 + 去敏感化)
+// 🖥️ 现代化面板代码 (玻璃拟态 + 动态背景 + 全中文)
 // =============================================================================
+const COMMON_STYLE = `
+    :root {
+        --bg-color: #0f172a;
+        --card-bg: rgba(30, 41, 59, 0.6);
+        --card-border: rgba(255, 255, 255, 0.08);
+        --text-primary: #f1f5f9;
+        --text-secondary: #94a3b8;
+        --accent-gradient: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+        --accent-glow: rgba(59, 130, 246, 0.3);
+        --success: #10b981;
+    }
+    body {
+        font-family: 'SF Pro SC', 'HanHei SC', 'Inter', system-ui, -apple-system, sans-serif;
+        background-color: var(--bg-color);
+        /* 动态背景 */
+        background-image: 
+            radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
+            radial-gradient(at 100% 100%, rgba(6, 182, 212, 0.15) 0px, transparent 50%);
+        background-attachment: fixed;
+        color: var(--text-primary);
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    /* 玻璃拟态卡片 */
+    .glass-card {
+        background: var(--card-bg);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid var(--card-border);
+        border-radius: 16px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    }
+    .btn {
+        background: var(--accent-gradient);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.2s;
+        box-shadow: 0 4px 15px var(--accent-glow);
+    }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px var(--accent-glow); opacity: 0.95; }
+    .btn:active { transform: translateY(0); }
+    
+    input {
+        background: rgba(0, 0, 0, 0.2);
+        border: 1px solid var(--card-border);
+        color: var(--text-primary);
+        padding: 12px;
+        border-radius: 8px;
+        outline: none;
+        transition: border-color 0.2s;
+    }
+    input:focus { border-color: #3b82f6; }
+    
+    /* 动画 */
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .animate-in { animation: fadeIn 0.4s ease-out forwards; }
+`;
+
 function loginPage() {
     return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>System Access</title>
+    <title>系统接入</title>
     <style>
-        :root {
-            --bg: #09090b;
-            --surface: #18181b;
-            --border: #27272a;
-            --text: #e4e4e7;
-            --primary: #fafafa;
-            --primary-fg: #18181b;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-        }
-        .box {
-            background: var(--surface);
+        ${COMMON_STYLE}
+        .login-box {
             padding: 40px;
-            border: 1px solid var(--border);
-            border-radius: 12px;
             width: 100%;
-            max-width: 320px;
-            text-align: center;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        }
-        h3 { margin-top: 0; font-weight: 500; letter-spacing: -0.5px; color: var(--primary); }
-        input {
-            width: 100%;
-            padding: 12px;
-            margin: 20px 0;
-            background: #000;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            color: var(--text);
-            outline: none;
-            transition: border-color 0.2s;
-            box-sizing: border-box;
+            max-width: 340px;
             text-align: center;
         }
-        input:focus { border-color: var(--primary); }
-        button {
-            width: 100%;
-            padding: 12px;
-            background: var(--primary);
-            color: var(--primary-fg);
-            border: none;
-            border-radius: 6px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: opacity 0.2s;
+        .logo-area {
+            margin-bottom: 25px;
+            font-size: 3rem;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            color: transparent;
         }
-        button:hover { opacity: 0.9; }
+        .subtitle { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 30px; }
+        input { width: 100%; box-sizing: border-box; text-align: center; margin-bottom: 20px; }
+        button { width: 100%; padding: 12px; }
     </style>
 </head>
 <body>
-    <div class="box">
-        <h3>Console Access</h3>
-        <input type="password" id="pwd" placeholder="Enter Access Key" autofocus onkeypress="if(event.keyCode===13)verify()">
-        <button onclick="verify()">Verify Identity</button>
+    <div class="glass-card login-box animate-in">
+        <div class="logo-area">⚡️</div>
+        <h2 style="margin: 0 0 10px 0;">控制台访问</h2>
+        <div class="subtitle">请输入管理员密钥以继续</div>
+        
+        <input type="password" id="pwd" placeholder="身份验证密钥" autofocus onkeypress="if(event.keyCode===13)verify()">
+        <button onclick="verify()">验证身份</button>
     </div>
     <script>
         function verify(){
             const p=document.getElementById("pwd").value;
             if(!p)return;
-            document.cookie="auth="+p+"; path=/; Max-Age=31536000; SameSite=Lax";
-            location.reload();
+            const btn = document.querySelector('button');
+            btn.innerHTML = '验证中...';
+            setTimeout(() => {
+                document.cookie="auth="+p+"; path=/; Max-Age=31536000; SameSite=Lax";
+                location.reload();
+            }, 300);
         }
     </script>
 </body></html>`;
@@ -243,141 +277,115 @@ function dashPage(host, uuid, proxyip, subpass) {
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Service Dashboard</title>
+    <title>服务概览</title>
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
     <style>
-        :root {
-            --bg: #000000;
-            --card-bg: #0a0a0a;
-            --border: #262626;
-            --text-main: #ededed;
-            --text-sub: #a1a1aa;
-            --accent: #ffffff;
-        }
-        body {
-            background: var(--bg);
-            color: var(--text-main);
-            font-family: 'Inter', -apple-system, sans-serif;
-            margin: 0;
-            padding: 40px 20px;
-            display: flex;
-            justify-content: center;
-            min-height: 100vh;
-        }
-        .container { width: 100%; max-width: 720px; display: flex; flex-direction: column; gap: 20px; }
+        ${COMMON_STYLE}
+        body { align-items: flex-start; padding-top: 50px; }
+        .container { width: 90%; max-width: 800px; display: flex; flex-direction: column; gap: 24px; }
         
-        /* 顶部导航 */
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .brand { font-size: 1.2rem; font-weight: 700; display: flex; align-items: center; gap: 8px; letter-spacing: -0.5px; }
-        .status-dot { width: 8px; height: 8px; background: #10b981; border-radius: 50%; box-shadow: 0 0 8px #10b981; }
-
-        /* 卡片样式 */
-        .card {
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 24px;
-            transition: transform 0.2s ease, border-color 0.2s;
-        }
-        .card:hover { border-color: #404040; }
+        /* 头部 */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 0 10px; }
+        .brand { font-size: 1.4rem; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+        .badge { background: rgba(16, 185, 129, 0.15); color: var(--success); padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; border: 1px solid rgba(16, 185, 129, 0.2); }
         
+        /* 卡片内容 */
+        .card-body { padding: 25px; }
         .section-title {
-            font-size: 0.9rem;
-            color: var(--text-sub);
+            font-size: 0.85rem;
+            color: var(--text-secondary);
             text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 16px;
+            letter-spacing: 1.5px;
+            margin-bottom: 18px;
             display: flex;
             align-items: center;
             gap: 8px;
         }
         
-        /* 输入框组 */
-        .input-group { display: flex; gap: 10px; }
-        input {
-            flex: 1;
-            background: #171717;
-            border: 1px solid var(--border);
-            color: var(--text-main);
-            padding: 12px 16px;
-            border-radius: 8px;
-            font-family: 'Monaco', monospace;
-            font-size: 0.85rem;
-            outline: none;
-            transition: all 0.2s;
-        }
-        input:focus { border-color: var(--text-sub); background: #262626; }
+        .input-group { display: flex; gap: 12px; }
+        input { flex: 1; font-family: monospace; font-size: 0.9rem; }
         
-        /* 按钮 */
-        .btn {
-            padding: 0 20px;
-            background: var(--accent);
-            color: black;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 0.9rem;
-            cursor: pointer;
-            transition: opacity 0.2s;
+        .btn-ghost { background: transparent; border: 1px solid var(--card-border); box-shadow: none; color: var(--text-secondary); padding: 8px 12px; }
+        .btn-ghost:hover { border-color: var(--text-primary); color: var(--text-primary); transform: none; }
+        
+        /* 信息行 */
+        .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
+        .info-item { background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px; border: 1px solid var(--card-border); }
+        .info-label { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 5px; }
+        .info-val { font-family: monospace; font-size: 0.95rem; color: #fff; word-break: break-all; }
+
+        /* Toast 提示 */
+        #toast {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(50px);
+            background: var(--text-primary); color: #000; padding: 10px 24px; border-radius: 50px;
+            opacity: 0; transition: all 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55); pointer-events: none;
+            font-weight: 600; box-shadow: 0 10px 20px rgba(0,0,0,0.3);
         }
-        .btn:hover { opacity: 0.8; }
-        .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-sub); }
-        .btn-ghost:hover { border-color: var(--text-main); color: var(--text-main); }
-
-        .info-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
-        .info-row:last-child { border-bottom: none; }
-        .info-label { color: var(--text-sub); }
-        .info-val { font-family: monospace; }
-
+        #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="container animate-in">
         <div class="header">
             <div class="brand">
-                <div class="status-dot"></div>
-                <span>EDGE NETWORK</span>
+                <i class="ri-cloud-windy-line"></i> 
+                <span>边缘网络控制台</span>
+                <span class="badge">运行中</span>
             </div>
-            <button class="btn btn-ghost" onclick="logout()" style="padding: 8px 12px; height: auto;">
-                <i class="ri-shut-down-line"></i>
+            <button class="btn btn-ghost" onclick="logout()" title="退出登录">
+                <i class="ri-logout-box-r-line"></i>
             </button>
         </div>
 
-        <div class="card">
-            <div class="section-title"><i class="ri-refresh-line"></i> Sync Configuration</div>
+        <div class="glass-card card-body">
+            <div class="section-title"><i class="ri-link-m"></i> 配置同步链接</div>
             <div class="input-group">
                 <input type="text" id="subLink" value="${defaultSubLink}" readonly onclick="this.select()">
-                <button class="btn" onclick="copyId('subLink')">Copy</button>
+                <button class="btn" onclick="copyId('subLink')"><i class="ri-file-copy-line"></i> 复制</button>
             </div>
-            <div style="margin-top: 15px; font-size: 0.8rem; color: var(--text-sub);">
-                <i class="ri-information-line"></i> 将此链接导入客户端以同步配置
-            </div>
+            <p style="margin-top: 15px; font-size: 0.85rem; color: var(--text-secondary);">
+                <i class="ri-information-line"></i> 请将此链接导入兼容的客户端以完成配置同步。
+            </p>
         </div>
 
-        <div class="card">
-            <div class="section-title"><i class="ri-equalizer-line"></i> Advanced Settings</div>
+        <div class="glass-card card-body">
+            <div class="section-title"><i class="ri-settings-4-line"></i> 高级参数设置</div>
             
-            <div class="info-row">
-                <span class="info-label">Identity Key (UUID)</span>
-                <span class="info-val">${uuid.split('-')[0]}***</span>
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">身份密钥 (UUID)</div>
+                    <div class="info-val">${uuid.split('-')[0]}****${uuid.split('-')[4]}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">当前服务域</div>
+                    <div class="info-val">${host}</div>
+                </div>
             </div>
 
-            <div style="margin-top: 20px;">
-                <label style="font-size: 0.8rem; color: var(--text-sub); display: block; margin-bottom: 8px;">
-                    Custom Access Point (Optional)
+            <div style="margin-top: 25px;">
+                <label class="info-label" style="display:block; margin-bottom: 10px;">
+                    自定义加速源 (Address Override)
                 </label>
                 <div class="input-group">
-                    <input type="text" id="customIP" value="${proxyip}" placeholder="e.g. data.example.com">
-                    <button class="btn btn-ghost" onclick="updateLink()">Update</button>
+                    <input type="text" id="customIP" value="${proxyip}" placeholder="例如: data.example.com">
+                    <button class="btn btn-ghost" onclick="updateLink()">更新配置</button>
                 </div>
             </div>
         </div>
     </div>
 
+    <div id="toast">已复制到剪贴板</div>
+
     <script>
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.innerText = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2000);
+        }
         function copyId(id){
             const el=document.getElementById(id);el.select();
-            navigator.clipboard.writeText(el.value).then(()=>alert('已复制到剪贴板'));
+            navigator.clipboard.writeText(el.value).then(()=>showToast('已复制配置链接'));
         }
         function updateLink(){
             const ip = document.getElementById('customIP').value;
@@ -386,6 +394,7 @@ function dashPage(host, uuid, proxyip, subpass) {
             let url = "https://" + host + "/" + pass;
             if(ip) url += "?proxyip=" + ip;
             document.getElementById('subLink').value = url;
+            showToast('链接已更新');
         }
         function logout(){
             document.cookie="auth=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
@@ -415,7 +424,7 @@ export default {
       let _ROOT_REDIRECT = getEnv(env, 'ROOT_REDIRECT_URL', ROOT_REDIRECT_URL);
       if (!_ROOT_REDIRECT.includes('://')) _ROOT_REDIRECT = 'https://' + _ROOT_REDIRECT;
 
-      // 1. 订阅接口处理 (支持 /sub?uuid=... 或 /password)
+      // 1. 订阅接口处理
       const isSubPath = (_SUB_PW && url.pathname === `/${_SUB_PW}`);
       const isNormalSub = (url.pathname === '/sub' && url.searchParams.get('uuid') === _UUID);
 
@@ -449,7 +458,7 @@ export default {
       }
 
       // 3. WebSocket 代理处理
-      // 解析路径中的 proxyip (e.g. /proxyip=1.2.3.4:443)
+      // 解析路径中的 proxyip
       let proxyIPConfig = null;
       if (url.pathname.includes('/proxyip=')) {
         try {
@@ -503,7 +512,7 @@ function genNodes(h, u, p, ipsText, ps = "") {
     return l.map(L => {
         const [a, n] = L.split('#'); if (!a) return "";
         const I = a.trim(); 
-        // 节点名称改为 Edge-Instance
+        // 使用通用名称
         let N = n ? n.trim() : 'Edge-Instance';
         if (ps) N = `${N} ${ps}`;
         let i = I, pt = "443"; if (I.includes(':') && !I.includes('[')) { const s = I.split(':'); i = s[0]; pt = s[1]; }
