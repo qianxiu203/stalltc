@@ -14,11 +14,11 @@ import { connect } from 'cloudflare:sockets';
 // ============================
 
 // UUID（协议A 的 uuid；同时也可作为协议B 的密码明文，服务端会校验 sha224(UUID)）
-const DEFAULT_UUID = '6c1b8e2a-9451-4d70-8157-bebb207cc37d';
+const DEFAULT_UUID = '';
 
 // 订阅路径：访问 `https://你的域名/<SUB_PATH>` 才会返回订阅
 // 留空则默认使用 UUID 作为订阅路径（更隐蔽）
-const DEFAULT_SUB_PATH = 'admin';
+const DEFAULT_SUB_PATH = '';
 
 // WebSocket 代理路径：客户端节点里的 WS path
 // 留空则默认与 SUB_PATH 相同（路径保护更严格）
@@ -29,7 +29,7 @@ const DEFAULT_WS_PATH = '';
 const DEFAULT_PROXYIP = '';
 
 // 伪装重定向：非授权路径（包括 /）统一跳转到此站点
-const DEFAULT_FAKE_URL = 'https://www.bing.com/';
+const DEFAULT_FAKE_URL = 'https://cn.bing.com';
 
 // 是否关闭“协议B”（保留与旧版环境变量开关兼容；这里避免在源码中直写敏感单词）
 const DEFAULT_DISABLE_P2 = false;
