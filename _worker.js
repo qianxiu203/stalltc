@@ -8,15 +8,19 @@ const WEB_PASSWORD = "";  // 管理面板密码
 const SUB_PASSWORD = "";  // 订阅路径密码
 
 // 🟢【重要配置】: 默认 ProxyIP (兜底地址)
-// 只有填了这里，生成的默认节点路径才会是干净的路径，不带参数
-// 必须填！例如: proxy.aliyun.com 或 ProxyIP.CMLiussss.net
 const DEFAULT_PROXY_IP = ""; 
 
 // 🟢【伪装配置】: 默认节点路径
-// 配合上面的 IP，用来隐藏真实意图，看起来像 API 请求
 const NODE_DEFAULT_PATH = "/api/v1"; 
 
 const ROOT_REDIRECT_URL = ""; 
+
+// 🟢【多账号池化配置 (重要)】: 
+// 本脚本支持跨多个 Cloudflare 账号/Worker 域名的横向扩展，突破单日 10 万次限制。
+// 💡 使用方法：请勿在此处硬编码！请仅在“负责下发订阅的主账号”的 Cloudflare 后台添加环境变量。
+// 变量名: POOL_DOMAINS
+// 变量值: node1.a.workers.dev, node2.b.workers.dev (填入你所有的 Worker 域名，用英文逗号分隔)
+// 注意：只做流量转发的子账号无需设置此变量，它会自动降级运行。
 
 // =============================================================================
 // ⚡️ 核心逻辑区
@@ -29,7 +33,6 @@ const PT_TYPE = 'v'+'l'+'e'+'s'+'s';
 
 function getEnv(env, key, fallback) { return env[key] || fallback; }
 
-// 解析单个 IP 或域名
 async function parseIP(p){
     if(!p) return null;
     p=p.trim().toLowerCase();
@@ -61,12 +64,6 @@ async function getDynamicUUID(key, refresh = 86400) {
     return [...b.slice(0, 16)].map(n => n.toString(16).padStart(2, '0')).join('').replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, '$1-$2-$3-$4-$5');
 }
 
-/**
- * 核心处理函数
- * @param {WebSocket} ws 
- * @param {Object} proxyConfig 单个 ProxyIP 配置
- * @param {string} uuid 
- */
 const handle = (ws, proxyConfig, uuid) => {
   const pool = new Pool();
   let s, w, r, inf, fst = true, rx = 0, stl = 0, cnt = 0, lact = Date.now(), con = false, rd = false, wt = false, tm = {}, pd = [], pb = 0, scr = 1.0, lck = Date.now(), lrx = 0, md = 'buf', asz = 0, tp = [], st = { t: 0, c: 0, ts: Date.now() };
@@ -108,7 +105,6 @@ const handle = (ws, proxyConfig, uuid) => {
   con = false; cnt = 0; scr = Math.min(1, scr + 0.15); lact = Date.now(); rdL();
   wtL() } catch { con = false; scr = Math.max(0.1, scr - 0.2); rcn() } };
   
-  // 🟢 智能连接逻辑
   const cn = async () => {
     try {
         const directPromise = connect({ hostname: inf.host, port: inf.port });
@@ -154,90 +150,18 @@ const handle = (ws, proxyConfig, uuid) => {
 // 🎨 波谱风格 (Pop Art) 面板代码
 // =============================================================================
 const COMMON_STYLE = `
-    :root {
-        --bg-color: #f0f0f0;
-        --card-bg: #ffffff;
-        --primary-color: #ff4757; /* 鲜艳红 */
-        --secondary-color: #3742fa; /* 宝蓝 */
-        --accent-color: #ffa502; /* 橙黄 */
-        --text-main: #2f3542;
-        --border-color: #000000;
-        --shadow-offset: 4px;
-    }
-    body {
-        font-family: 'Courier New', 'Verdana', sans-serif;
-        background-color: var(--bg-color);
-        /* 波点背景 */
-        background-image: radial-gradient(var(--text-main) 1px, transparent 1px);
-        background-size: 20px 20px;
-        color: var(--text-main);
-        margin: 0;
-        min-height: 100vh;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-    }
-    .pop-card {
-        background: var(--card-bg);
-        border: 3px solid var(--border-color);
-        box-shadow: var(--shadow-offset) var(--shadow-offset) 0px var(--border-color);
-        border-radius: 0px; /* 直角 */
-        padding: 2rem;
-        max-width: 400px;
-        width: 90%;
-        position: relative;
-    }
-    .pop-title {
-        font-weight: 900;
-        text-transform: uppercase;
-        font-size: 1.8rem;
-        margin-bottom: 1.5rem;
-        color: var(--border-color);
-        text-shadow: 2px 2px 0px var(--accent-color);
-        letter-spacing: -1px;
-    }
-    .btn {
-        background: var(--primary-color);
-        color: white;
-        border: 3px solid var(--border-color);
-        padding: 10px 20px;
-        font-weight: 700;
-        text-transform: uppercase;
-        cursor: pointer;
-        box-shadow: var(--shadow-offset) var(--shadow-offset) 0px var(--border-color);
-        transition: all 0.1s;
-        display: inline-block;
-        text-decoration: none;
-    }
-    .btn:hover {
-        transform: translate(2px, 2px);
-        box-shadow: 2px 2px 0px var(--border-color);
-    }
-    .btn:active {
-        transform: translate(var(--shadow-offset), var(--shadow-offset));
-        box-shadow: 0px 0px 0px var(--border-color);
-    }
+    :root { --bg-color: #f0f0f0; --card-bg: #ffffff; --primary-color: #ff4757; --secondary-color: #3742fa; --accent-color: #ffa502; --text-main: #2f3542; --border-color: #000000; --shadow-offset: 4px; }
+    body { font-family: 'Courier New', 'Verdana', sans-serif; background-color: var(--bg-color); background-image: radial-gradient(var(--text-main) 1px, transparent 1px); background-size: 20px 20px; color: var(--text-main); margin: 0; min-height: 100vh; display: flex; justify-content: center; align-items: center; }
+    .pop-card { background: var(--card-bg); border: 3px solid var(--border-color); box-shadow: var(--shadow-offset) var(--shadow-offset) 0px var(--border-color); border-radius: 0px; padding: 2rem; max-width: 400px; width: 90%; position: relative; }
+    .pop-title { font-weight: 900; text-transform: uppercase; font-size: 1.8rem; margin-bottom: 1.5rem; color: var(--border-color); text-shadow: 2px 2px 0px var(--accent-color); letter-spacing: -1px; }
+    .btn { background: var(--primary-color); color: white; border: 3px solid var(--border-color); padding: 10px 20px; font-weight: 700; text-transform: uppercase; cursor: pointer; box-shadow: var(--shadow-offset) var(--shadow-offset) 0px var(--border-color); transition: all 0.1s; display: inline-block; text-decoration: none; }
+    .btn:hover { transform: translate(2px, 2px); box-shadow: 2px 2px 0px var(--border-color); }
+    .btn:active { transform: translate(var(--shadow-offset), var(--shadow-offset)); box-shadow: 0px 0px 0px var(--border-color); }
     .btn-blue { background: var(--secondary-color); }
-    
-    input {
-        width: 100%;
-        padding: 10px;
-        border: 3px solid var(--border-color);
-        background: #fff;
-        font-family: inherit;
-        font-weight: 600;
-        outline: none;
-        box-sizing: border-box;
-        margin-bottom: 1rem;
-    }
-    input:focus {
-        background: #ffeaa7;
-    }
+    input { width: 100%; padding: 10px; border: 3px solid var(--border-color); background: #fff; font-family: inherit; font-weight: 600; outline: none; box-sizing: border-box; margin-bottom: 1rem; }
+    input:focus { background: #ffeaa7; }
     .animate-in { animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-    @keyframes popIn { 
-        from { opacity: 0; transform: scale(0.8); } 
-        to { opacity: 1; transform: scale(1); } 
-    }
+    @keyframes popIn { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
 `;
 
 function loginPage() {
@@ -253,30 +177,20 @@ function loginPage() {
 }
 
 function dashPage(host, uuid, proxyip, subpass) {
-    // 页面内显示的配置链接，如果 proxyip 存在且不同于默认值，才会在前端拼接参数
-    // 但核心逻辑是服务器端的 genNodes，这里只是给用户看的
     const defaultSubLink = `https://${host}/${subpass}`;
-    
     return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>DASHBOARD</title><link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet"><style>${COMMON_STYLE}
     .info-box { border: 2px solid black; padding: 10px; margin-bottom: 15px; background: white; }
     .label { font-size: 0.8rem; font-weight: 800; color: var(--secondary-color); text-transform: uppercase; }
     .val { font-family: monospace; font-size: 1rem; word-break: break-all; font-weight: bold; }
-    #toast {
-        position: fixed; bottom: 20px; right: 20px;
-        background: var(--border-color); color: white;
-        padding: 10px 20px; border: 3px solid white;
-        font-weight: bold; transform: translateY(100px); transition: transform 0.3s;
-    }
+    #toast { position: fixed; bottom: 20px; right: 20px; background: var(--border-color); color: white; padding: 10px 20px; border: 3px solid white; font-weight: bold; transform: translateY(100px); transition: transform 0.3s; }
     #toast.show { transform: translateY(0); }
     </style></head><body>
-    
     <div class="pop-card animate-in" style="max-width:600px;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
             <div class="pop-title" style="margin:0; font-size:1.5rem;">DASHBOARD</div>
             <button class="btn btn-blue" style="padding:5px 10px;" onclick="logout()"><i class="ri-logout-box-r-line"></i></button>
         </div>
         <div style="height:3px; background:black; margin: 15px 0;"></div>
-
         <div class="info-box" style="background:#ffeaa7;">
             <div class="label"><i class="ri-links-line"></i> SUBSCRIPTION LINK</div>
             <div style="display:flex; gap:10px; margin-top:5px;">
@@ -284,7 +198,6 @@ function dashPage(host, uuid, proxyip, subpass) {
                 <button class="btn" onclick="copyId('subLink')">COPY</button>
             </div>
         </div>
-
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
             <div class="info-box">
                 <div class="label">UUID</div>
@@ -295,7 +208,6 @@ function dashPage(host, uuid, proxyip, subpass) {
                 <div class="val">${host}</div>
             </div>
         </div>
-
         <div class="info-box">
             <div class="label">ADDRESS OVERRIDE (PROXYIP)</div>
             <div style="margin-top:5px; font-size:0.8rem; color:#666;">Leave empty to use default path (${NODE_DEFAULT_PATH})</div>
@@ -305,16 +217,13 @@ function dashPage(host, uuid, proxyip, subpass) {
             </div>
         </div>
     </div>
-    
     <div id="toast">COPIED TO CLIPBOARD!</div>
-
     <script>
     function showToast(m){const t=document.getElementById('toast');t.innerText=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000)}
     function copyId(id){const el=document.getElementById(id);el.select();navigator.clipboard.writeText(el.value).then(()=>showToast('COPIED!'))}
     function updateLink(){
         const ip=document.getElementById('customIP').value.trim();
         const u="https://"+window.location.hostname+"/${subpass}";
-        // 前端逻辑：如果有IP，拼参数；没IP，保持原样(后端会处理成默认路径)
         document.getElementById('subLink').value = ip ? u+"?proxyip="+ip : u;
         showToast('LINK UPDATED!');
     }
@@ -331,33 +240,30 @@ export default {
       const url = new URL(r.url);
       const host = url.hostname; 
       
-      // 加载配置
       const _UUID = env.KEY ? await getDynamicUUID(env.KEY) : getEnv(env, 'UUID', UUID);
       const _WEB_PW = getEnv(env, 'WEB_PASSWORD', WEB_PASSWORD);
       const _SUB_PW = getEnv(env, 'SUB_PASSWORD', SUB_PASSWORD);
       
-      // 🟢 变量获取: 优先读取环境变量 -> 然后是代码中的默认值
       const _PROXY_IP_RAW = env.PROXYIP || env.DEFAULT_PROXY_IP || DEFAULT_PROXY_IP;
       const _PS = getEnv(env, 'PS', ""); 
       
       const _PROXY_IP = _PROXY_IP_RAW ? _PROXY_IP_RAW.split(/[,\n]/)[0].trim() : "";
       
+      // 🟢 解析域名池：获取环境变量 POOL_DOMAINS，如果没有则降级使用当前的 host
+      const rawDomains = getEnv(env, 'POOL_DOMAINS', host);
+      const _POOL_DOMAINS = rawDomains.split(',').map(d => d.trim()).filter(Boolean);
+
       let _ROOT_REDIRECT = getEnv(env, 'ROOT_REDIRECT_URL', ROOT_REDIRECT_URL);
       if (!_ROOT_REDIRECT.includes('://')) _ROOT_REDIRECT = 'https://' + _ROOT_REDIRECT;
 
-      // 1. 订阅接口
-      const isSubPath = (_SUB_PW && url.pathname === `/${_SUB_PW}`);
-      const isNormalSub = (url.pathname === '/sub' && url.searchParams.get('uuid') === _UUID);
-
-      if (isSubPath || isNormalSub) {
+      if (isSubPath(_SUB_PW, url) || isNormalSub(_UUID, url)) {
           const requestProxyIp = url.searchParams.get('proxyip') || _PROXY_IP;
           const allIPs = await getCustomIPs(env);
-          // 传入 _PROXY_IP 作为默认值进行比对
-          const listText = genNodes(host, _UUID, requestProxyIp, allIPs, _PS, _PROXY_IP);
+          // 传入 _POOL_DOMAINS 数组生成多节点订阅
+          const listText = genNodes(_POOL_DOMAINS, _UUID, requestProxyIp, allIPs, _PS, _PROXY_IP);
           return new Response(btoa(unescape(encodeURIComponent(listText))), { status: 200, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
       }
 
-      // 2. HTTP 请求 (面板与重定向)
       if (r.headers.get('Upgrade') !== 'websocket') {
           if (url.pathname === '/') return Response.redirect(_ROOT_REDIRECT, 302);
           if (url.pathname === '/admin' || url.pathname === '/admin/') {
@@ -365,38 +271,28 @@ export default {
                   const cookie = r.headers.get('Cookie') || "";
                   if (!cookie.includes(`auth=${_WEB_PW}`)) return new Response(loginPage(), { status: 200, headers: {'Content-Type': 'text/html'} });
               }
-              // 传入当前的 _PROXY_IP 方便面板显示
               return new Response(dashPage(host, _UUID, _PROXY_IP, _SUB_PW), { status: 200, headers: {'Content-Type': 'text/html'} });
           }
-          // 伪装路径处理 (如果访问的是默认API路径，返回一个假的 json 响应，防止探测)
           if (url.pathname === NODE_DEFAULT_PATH) {
               return new Response(JSON.stringify({ status: "ok", version: "1.0.0" }), { status: 200, headers: { 'Content-Type': 'application/json' } });
           }
           return new Response('Not Found', { status: 404 });
       }
 
-      // 3. WebSocket 代理处理
       let finalProxyConfig = null;
       const remoteProxyIP = url.searchParams.get('proxyip'); 
 
-      // 优先级 1: URL 参数 (?proxyip=...)
       if (remoteProxyIP) {
-          try {
-              finalProxyConfig = await parseIP(remoteProxyIP);
-          } catch (e) {}
+          try { finalProxyConfig = await parseIP(remoteProxyIP); } catch (e) {}
       }
-      // 优先级 2: Path 路径 (/proxyip=...)
       else if (url.pathname.includes('/proxyip=')) {
         try {
             const proxyParam = url.pathname.split('/proxyip=')[1].split('/')[0];
             finalProxyConfig = await parseIP(proxyParam);
         } catch (e) {}
       } 
-      // 优先级 3: 环境变量 (默认兜底)
       else if (_PROXY_IP) {
-        try {
-            finalProxyConfig = await parseIP(_PROXY_IP);
-        } catch (e) {}
+        try { finalProxyConfig = await parseIP(_PROXY_IP); } catch (e) {}
       }
 
       const { 0: c, 1: s } = new WebSocketPair();
@@ -413,6 +309,9 @@ export default {
 // =============================================================================
 // 🔧 辅助工具
 // =============================================================================
+function isSubPath(pw, url) { return pw && url.pathname === `/${pw}`; }
+function isNormalSub(uuid, url) { return url.pathname === '/sub' && url.searchParams.get('uuid') === uuid; }
+
 async function getCustomIPs(env) {
     let ips = getEnv(env, 'ADD', "");
     const addApi = getEnv(env, 'ADDAPI', "");
@@ -434,29 +333,25 @@ async function getCustomIPs(env) {
     return ips;
 }
 
-// 🟢 节点生成逻辑
-function genNodes(h, u, p, ipsText, ps = "", defaultIP = "") {
+// 🟢 重构后的多账号节点池生成逻辑
+function genNodes(hostsArray, u, p, ipsText, ps = "", defaultIP = "") {
     let l = ipsText.split('\n').filter(line => line.trim() !== "");
     
     let safeP = p ? p.trim() : "";
     let safeDef = defaultIP ? defaultIP.trim() : "";
     
-    // 默认使用伪装路径
     let finalPath = NODE_DEFAULT_PATH;
-    
-    // 只有当请求的IP 与 默认IP 不一致时，才在路径后追加参数
     if (safeP && safeP !== "" && safeP !== safeDef) {
         finalPath += `?proxyip=${safeP}`;
     }
     
     const encodedPath = encodeURIComponent(finalPath);
+    let nodes = [];
 
-    return l.map(L => {
-        const [a, n] = L.split('#'); if (!a) return "";
+    l.forEach((L) => {
+        const [a, n] = L.split('#'); 
+        if (!a) return;
         const I = a.trim(); 
-        
-        let N = n ? n.trim() : 'Edge-Instance';
-        if (ps) N = `${N} ${ps}`;
         
         let i = I, pt = "443"; 
         if (I.includes(']:')) { 
@@ -468,7 +363,17 @@ function genNodes(h, u, p, ipsText, ps = "", defaultIP = "") {
             i = s[0];
             pt = s[1];
         }
-        
-        return `${PT_TYPE}://${u}@${i}:${pt}?encryption=none&security=tls&sni=${h}&alpn=h3&fp=random&allowInsecure=1&type=ws&host=${h}&path=${encodedPath}#${encodeURIComponent(N)}`
-    }).join('\n');
+
+        // 双重映射：针对每一个 ProxyIP，为域名池中的每个账号生成一个节点
+        hostsArray.forEach((h, hostIndex) => {
+            let baseName = n ? n.trim() : 'Edge-Instance';
+            // 如果只有一个域名，就不加编号后缀；如果有多个，就自动标上 Node1, Node2 区分
+            let N = hostsArray.length > 1 ? `${baseName}-Node${hostIndex + 1}` : baseName;
+            if (ps) N = `${N} ${ps}`;
+            
+            nodes.push(`${PT_TYPE}://${u}@${i}:${pt}?encryption=none&security=tls&sni=${h}&alpn=h3&fp=random&allowInsecure=1&type=ws&host=${h}&path=${encodedPath}#${encodeURIComponent(N)}`);
+        });
+    });
+
+    return nodes.join('\n');
 }
