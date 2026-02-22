@@ -1,10 +1,10 @@
 import { connect } from 'cloudflare:sockets';
 
 // =============================================================================
-// 🟣 用户配置区域
+// 🟣 用户配置区域 (建议在 Cloudflare 后台设置对应的环境变量，勿在此硬编码)
 // =============================================================================
-const UUID = ""; // 你的 UUID (建议在后台环境变量设置)
-const WEB_PASSWORD = "";  // 管理面板密码
+const UUID = ""; // 你的 UUID 
+const WEB_PASSWORD = "";  // 管理面板登录密码
 const SUB_PASSWORD = "";  // 订阅路径密码
 
 // 🟢【重要配置】: 默认 ProxyIP (兜底地址)
@@ -12,15 +12,29 @@ const DEFAULT_PROXY_IP = "";
 
 // 🟢【伪装配置】: 默认节点路径
 const NODE_DEFAULT_PATH = "/api/v1"; 
-
 const ROOT_REDIRECT_URL = ""; 
 
-// 🟢【多账号池化配置 (重要)】: 
-// 本脚本支持跨多个 Cloudflare 账号/Worker 域名的横向扩展，突破单日 10 万次限制。
-// 💡 使用方法：请勿在此处硬编码！请仅在“负责下发订阅的主账号”的 Cloudflare 后台添加环境变量。
-// 变量名: POOL_DOMAINS
-// 变量值: node1.a.workers.dev, node2.b.workers.dev (填入你所有的 Worker 域名，用英文逗号分隔)
-// 注意：只做流量转发的子账号无需设置此变量，它会自动降级运行。
+// =============================================================================
+// 🚀 进阶架构配置说明 (多账号横向扩展 & 自动熔断)
+// =============================================================================
+//
+// 1️⃣ 基础负载均衡池 (环境变量名: POOL_DOMAINS)
+//    - 作用: 仅做静态的订阅节点分发，由客户端执行负载均衡。
+//    - 值示例: node1.a.workers.dev, node2.b.workers.dev
+//
+// 2️⃣ 智能探针与自动熔断 (高级用法)
+//    若要启用此功能，需在 Cloudflare 后台完成以下两项配置：
+//
+//    A. 绑定 KV 命名空间
+//       - 在 Worker 设置中，绑定一个 KV 命名空间，变量名必须为: NODE_STATUS
+//
+//    B. 配置账号矩阵 (环境变量名: ACCOUNTS_CONFIG)
+//       - 作用: 填入各子账号的 API 凭证。定时探针会监控用量，超过 95000 次自动将其从订阅池中剔除，次日 0 点自动恢复。
+//       - 值示例 (严格的 JSON 数组格式):
+//         [
+//           {"domain": "node1.a.workers.dev", "id": "账号A的AccountID", "token": "账号A的APIToken"},
+//           {"domain": "node2.b.workers.dev", "id": "账号B的AccountID", "token": "账号B的APIToken"}
+//         ]
 
 // =============================================================================
 // ⚡️ 核心逻辑区
@@ -122,7 +136,6 @@ const handle = (ws, proxyConfig, uuid) => {
             return proxy;
         } catch (e) {}
     }
-
     throw new Error('Connection failed');
   };
   
@@ -147,30 +160,59 @@ const handle = (ws, proxyConfig, uuid) => {
 };
 
 // =============================================================================
-// 🎨 波谱风格 (Pop Art) 面板代码
+// 🎨 极简暗黑毛玻璃 (Dark Glassmorphism) 面板代码
 // =============================================================================
 const COMMON_STYLE = `
-    :root { --bg-color: #f0f0f0; --card-bg: #ffffff; --primary-color: #ff4757; --secondary-color: #3742fa; --accent-color: #ffa502; --text-main: #2f3542; --border-color: #000000; --shadow-offset: 4px; }
-    body { font-family: 'Courier New', 'Verdana', sans-serif; background-color: var(--bg-color); background-image: radial-gradient(var(--text-main) 1px, transparent 1px); background-size: 20px 20px; color: var(--text-main); margin: 0; min-height: 100vh; display: flex; justify-content: center; align-items: center; }
-    .pop-card { background: var(--card-bg); border: 3px solid var(--border-color); box-shadow: var(--shadow-offset) var(--shadow-offset) 0px var(--border-color); border-radius: 0px; padding: 2rem; max-width: 400px; width: 90%; position: relative; }
-    .pop-title { font-weight: 900; text-transform: uppercase; font-size: 1.8rem; margin-bottom: 1.5rem; color: var(--border-color); text-shadow: 2px 2px 0px var(--accent-color); letter-spacing: -1px; }
-    .btn { background: var(--primary-color); color: white; border: 3px solid var(--border-color); padding: 10px 20px; font-weight: 700; text-transform: uppercase; cursor: pointer; box-shadow: var(--shadow-offset) var(--shadow-offset) 0px var(--border-color); transition: all 0.1s; display: inline-block; text-decoration: none; }
-    .btn:hover { transform: translate(2px, 2px); box-shadow: 2px 2px 0px var(--border-color); }
-    .btn:active { transform: translate(var(--shadow-offset), var(--shadow-offset)); box-shadow: 0px 0px 0px var(--border-color); }
-    .btn-blue { background: var(--secondary-color); }
-    input { width: 100%; padding: 10px; border: 3px solid var(--border-color); background: #fff; font-family: inherit; font-weight: 600; outline: none; box-sizing: border-box; margin-bottom: 1rem; }
-    input:focus { background: #ffeaa7; }
-    .animate-in { animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-    @keyframes popIn { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+    :root { 
+        --bg-dark: #0f172a; 
+        --surface: rgba(30, 41, 59, 0.7); 
+        --surface-hover: rgba(30, 41, 59, 0.9);
+        --primary: #3b82f6; 
+        --primary-hover: #2563eb;
+        --danger: #ef4444;
+        --text-main: #f8fafc; 
+        --text-muted: #94a3b8; 
+        --border: rgba(255, 255, 255, 0.1); 
+        --radius: 12px;
+    }
+    body { font-family: system-ui, -apple-system, sans-serif; background-color: var(--bg-dark); background-image: radial-gradient(circle at 50% 0%, #1e293b, #0f172a); color: var(--text-main); margin: 0; min-height: 100vh; display: flex; justify-content: center; align-items: center; overflow-x: hidden; }
+    .glass-card { background: var(--surface); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid var(--border); border-radius: var(--radius); padding: 2.5rem; width: 90%; max-width: 540px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); position: relative; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
+    .title { font-size: 1.5rem; font-weight: 600; margin: 0; letter-spacing: -0.025em; display: flex; align-items: center; gap: 0.5rem; }
+    .title::before { content: ''; display: block; width: 12px; height: 12px; background: var(--primary); border-radius: 50%; box-shadow: 0 0 10px var(--primary); }
+    
+    .btn { background: var(--primary); color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 8px; font-weight: 500; font-size: 0.9rem; cursor: pointer; transition: all 0.2s ease; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+    .btn:hover { background: var(--primary-hover); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); }
+    .btn:active { transform: translateY(0); }
+    .btn-danger { background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
+    .btn-danger:hover { background: var(--danger); border-color: var(--danger); color: white; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3); }
+    
+    .form-group { margin-bottom: 1.5rem; }
+    .label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .input-wrapper { display: flex; gap: 0.5rem; }
+    input { width: 100%; padding: 0.75rem 1rem; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border); border-radius: 8px; color: var(--text-main); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.9rem; outline: none; transition: border-color 0.2s; box-sizing: border-box; }
+    input:focus { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+    
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .info-box { background: rgba(15, 23, 42, 0.4); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
+    .info-val { font-family: ui-monospace, monospace; font-size: 0.95rem; word-break: break-all; margin-top: 0.25rem; }
+    
+    #toast { position: fixed; bottom: 2rem; left: 50%; transform: translate(-50%, 100px); background: var(--text-main); color: var(--bg-dark); padding: 0.75rem 1.5rem; border-radius: 2rem; font-weight: 600; font-size: 0.9rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); pointer-events: none; }
+    #toast.show { transform: translate(-50%, 0); }
+    .animate-in { animation: fadeSlideUp 0.5s ease-out forwards; }
+    @keyframes fadeSlideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 `;
 
 function loginPage() {
-    return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>ACCESS DENIED</title><style>${COMMON_STYLE}</style></head><body>
-    <div class="pop-card animate-in">
-        <div class="pop-title" style="text-align:center;">SYSTEM LOGIN</div>
-        <div style="margin-bottom:20px; font-weight:bold; background:var(--accent-color); color:black; padding:5px; border:2px solid black;">⚠ RESTRICTED AREA</div>
-        <input type="password" id="pwd" placeholder="INSERT PASSWORD..." onkeypress="if(event.keyCode===13)verify()">
-        <button class="btn" style="width:100%" onclick="verify()">ENTER >></button>
+    return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>System Login</title><style>${COMMON_STYLE}</style></head><body>
+    <div class="glass-card animate-in" style="max-width: 360px;">
+        <div class="header" style="justify-content: center; margin-bottom: 1.5rem; border: none; padding: 0;">
+            <h1 class="title" style="font-size: 1.25rem;">Node Authentication</h1>
+        </div>
+        <div class="form-group">
+            <input type="password" id="pwd" placeholder="Enter Access Key..." onkeypress="if(event.keyCode===13)verify()" autofocus>
+        </div>
+        <button class="btn" style="width:100%" onclick="verify()">Authenticate</button>
     </div>
     <script>function verify(){const p=document.getElementById("pwd").value;if(!p)return;document.cookie="auth="+p+"; path=/; Max-Age=31536000";location.reload()}</script>
     </body></html>`;
@@ -178,63 +220,59 @@ function loginPage() {
 
 function dashPage(host, uuid, proxyip, subpass) {
     const defaultSubLink = `https://${host}/${subpass}`;
-    return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>DASHBOARD</title><link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet"><style>${COMMON_STYLE}
-    .info-box { border: 2px solid black; padding: 10px; margin-bottom: 15px; background: white; }
-    .label { font-size: 0.8rem; font-weight: 800; color: var(--secondary-color); text-transform: uppercase; }
-    .val { font-family: monospace; font-size: 1rem; word-break: break-all; font-weight: bold; }
-    #toast { position: fixed; bottom: 20px; right: 20px; background: var(--border-color); color: white; padding: 10px 20px; border: 3px solid white; font-weight: bold; transform: translateY(100px); transition: transform 0.3s; }
-    #toast.show { transform: translateY(0); }
-    </style></head><body>
-    <div class="pop-card animate-in" style="max-width:600px;">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <div class="pop-title" style="margin:0; font-size:1.5rem;">DASHBOARD</div>
-            <button class="btn btn-blue" style="padding:5px 10px;" onclick="logout()"><i class="ri-logout-box-r-line"></i></button>
+    return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Node Dashboard</title><style>${COMMON_STYLE}</style></head><body>
+    <div class="glass-card animate-in">
+        <div class="header">
+            <h1 class="title">Control Panel</h1>
+            <button class="btn btn-danger" onclick="logout()">Logout</button>
         </div>
-        <div style="height:3px; background:black; margin: 15px 0;"></div>
-        <div class="info-box" style="background:#ffeaa7;">
-            <div class="label"><i class="ri-links-line"></i> SUBSCRIPTION LINK</div>
-            <div style="display:flex; gap:10px; margin-top:5px;">
-                <input type="text" id="subLink" value="${defaultSubLink}" readonly style="margin:0;">
-                <button class="btn" onclick="copyId('subLink')">COPY</button>
+        
+        <div class="form-group">
+            <span class="label">Subscription Link</span>
+            <div class="input-wrapper">
+                <input type="text" id="subLink" value="${defaultSubLink}" readonly>
+                <button class="btn" onclick="copyId('subLink')">Copy</button>
             </div>
         </div>
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
+
+        <div class="grid-2 form-group">
             <div class="info-box">
-                <div class="label">UUID</div>
-                <div class="val">${uuid.substring(0,8)}...</div>
+                <span class="label">Client UUID</span>
+                <div class="info-val">${uuid.substring(0,8)}...${uuid.substring(uuid.length-4)}</div>
             </div>
             <div class="info-box">
-                <div class="label">HOST</div>
-                <div class="val">${host}</div>
+                <span class="label">Edge Host</span>
+                <div class="info-val">${host}</div>
             </div>
         </div>
-        <div class="info-box">
-            <div class="label">ADDRESS OVERRIDE (PROXYIP)</div>
-            <div style="margin-top:5px; font-size:0.8rem; color:#666;">Leave empty to use default path (${NODE_DEFAULT_PATH})</div>
-            <div style="display:flex; gap:10px; margin-top:5px;">
-                <input type="text" id="customIP" value="${proxyip}" placeholder="e.g. 1.2.3.4" style="margin:0;">
-                <button class="btn btn-blue" onclick="updateLink()">UPDATE</button>
+
+        <div class="form-group" style="margin-bottom: 0;">
+            <span class="label">Routing Override (ProxyIP)</span>
+            <div class="input-wrapper">
+                <input type="text" id="customIP" value="${proxyip}" placeholder="Leave empty for default routing">
+                <button class="btn" onclick="updateLink()">Apply</button>
             </div>
         </div>
     </div>
-    <div id="toast">COPIED TO CLIPBOARD!</div>
+    <div id="toast">Copied to clipboard</div>
     <script>
-    function showToast(m){const t=document.getElementById('toast');t.innerText=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000)}
-    function copyId(id){const el=document.getElementById(id);el.select();navigator.clipboard.writeText(el.value).then(()=>showToast('COPIED!'))}
+    function showToast(m){const t=document.getElementById('toast');if(m)t.innerText=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000)}
+    function copyId(id){const el=document.getElementById(id);el.select();navigator.clipboard.writeText(el.value).then(()=>showToast())}
     function updateLink(){
         const ip=document.getElementById('customIP').value.trim();
         const u="https://"+window.location.hostname+"/${subpass}";
         document.getElementById('subLink').value = ip ? u+"?proxyip="+ip : u;
-        showToast('LINK UPDATED!');
+        showToast('Link Updated');
     }
     function logout(){document.cookie="auth=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";location.reload()}
     </script></body></html>`;
 }
 
 // =============================================================================
-// 🟢 主入口 (Fetch Event)
+// 🟢 主入口 (支持 fetch 和 scheduled 双事件)
 // =============================================================================
 export default {
+  // 负责处理常规的流量代理和订阅下发
   async fetch(r, env, ctx) {
     try {
       const url = new URL(r.url);
@@ -246,24 +284,47 @@ export default {
       
       const _PROXY_IP_RAW = env.PROXYIP || env.DEFAULT_PROXY_IP || DEFAULT_PROXY_IP;
       const _PS = getEnv(env, 'PS', ""); 
-      
       const _PROXY_IP = _PROXY_IP_RAW ? _PROXY_IP_RAW.split(/[,\n]/)[0].trim() : "";
       
-      // 🟢 解析域名池：获取环境变量 POOL_DOMAINS，如果没有则降级使用当前的 host
-      const rawDomains = getEnv(env, 'POOL_DOMAINS', host);
-      const _POOL_DOMAINS = rawDomains.split(',').map(d => d.trim()).filter(Boolean);
-
       let _ROOT_REDIRECT = getEnv(env, 'ROOT_REDIRECT_URL', ROOT_REDIRECT_URL);
       if (!_ROOT_REDIRECT.includes('://')) _ROOT_REDIRECT = 'https://' + _ROOT_REDIRECT;
 
+      // 🔍 核心逻辑：获取健康节点列表
+      let activeDomains = [];
+      const configStr = env.ACCOUNTS_CONFIG;
+      const poolStr = getEnv(env, 'POOL_DOMAINS', host);
+
+      if (configStr) {
+          try {
+              const accs = JSON.parse(configStr);
+              accs.forEach(a => { if (a.domain && !activeDomains.includes(a.domain)) activeDomains.push(a.domain.trim()); });
+          } catch(e) {}
+      } else if (poolStr) {
+          activeDomains = poolStr.split(',').map(d => d.trim()).filter(Boolean);
+      }
+      
+      // 若绑定了 KV 空间，过滤掉已被探针标记为 offline 的熔断节点
+      if (env.NODE_STATUS && activeDomains.length > 0) {
+          const healthyDomains = [];
+          for (let d of activeDomains) {
+              const status = await env.NODE_STATUS.get(`status_${d}`);
+              if (status !== 'offline') healthyDomains.push(d);
+          }
+          // 兜底保护：如果全挂了，就强制放出原始列表，避免订阅完全空白
+          if (healthyDomains.length > 0) activeDomains = healthyDomains; 
+      }
+
+      if (activeDomains.length === 0) activeDomains = [host];
+
+      // 处理订阅请求
       if (isSubPath(_SUB_PW, url) || isNormalSub(_UUID, url)) {
           const requestProxyIp = url.searchParams.get('proxyip') || _PROXY_IP;
           const allIPs = await getCustomIPs(env);
-          // 传入 _POOL_DOMAINS 数组生成多节点订阅
-          const listText = genNodes(_POOL_DOMAINS, _UUID, requestProxyIp, allIPs, _PS, _PROXY_IP);
+          const listText = genNodes(activeDomains, _UUID, requestProxyIp, allIPs, _PS, _PROXY_IP);
           return new Response(btoa(unescape(encodeURIComponent(listText))), { status: 200, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
       }
 
+      // 处理普通 HTTP 请求（面板或重定向）
       if (r.headers.get('Upgrade') !== 'websocket') {
           if (url.pathname === '/') return Response.redirect(_ROOT_REDIRECT, 302);
           if (url.pathname === '/admin' || url.pathname === '/admin/') {
@@ -274,11 +335,12 @@ export default {
               return new Response(dashPage(host, _UUID, _PROXY_IP, _SUB_PW), { status: 200, headers: {'Content-Type': 'text/html'} });
           }
           if (url.pathname === NODE_DEFAULT_PATH) {
-              return new Response(JSON.stringify({ status: "ok", version: "1.0.0" }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+              return new Response(JSON.stringify({ status: "ok", version: "1.1.0" }), { status: 200, headers: { 'Content-Type': 'application/json' } });
           }
           return new Response('Not Found', { status: 404 });
       }
 
+      // 处理 WebSocket 代理流量
       let finalProxyConfig = null;
       const remoteProxyIP = url.searchParams.get('proxyip'); 
 
@@ -303,14 +365,98 @@ export default {
     } catch (err) {
       return new Response(err.toString(), { status: 500 });
     }
+  },
+
+  // 负责在后台按 Cron 触发定时探针，监控账号健康度并写入 KV
+  async scheduled(event, env, ctx) {
+      await checkAccountsHealth(env);
   }
 };
 
 // =============================================================================
-// 🔧 辅助工具
+// 🔧 辅助工具与探针逻辑
 // =============================================================================
 function isSubPath(pw, url) { return pw && url.pathname === `/${pw}`; }
 function isNormalSub(uuid, url) { return url.pathname === '/sub' && url.searchParams.get('uuid') === uuid; }
+
+// 并发探针：遍历各账号用量并实施熔断
+async function checkAccountsHealth(env) {
+    if (!env.ACCOUNTS_CONFIG || !env.NODE_STATUS) return;
+    try {
+        const accounts = JSON.parse(env.ACCOUNTS_CONFIG);
+        
+        // 并发请求所有账号 API，极大缩短执行总时间
+        const checks = accounts.map(async (acc) => {
+            if (!acc.id || !acc.token || !acc.domain) return;
+            const usage = await getCloudflareUsage(acc.id, acc.token);
+            
+            if (usage.success) {
+                const isOffline = usage.requests >= 95000;
+                const kvKey = `status_${acc.domain.trim()}`;
+                
+                if (isOffline) {
+                    // 计算距离次日 UTC 0点的秒数，作为自动恢复的 TTL 时效
+                    const now = new Date();
+                    const tomorrow = new Date(now);
+                    tomorrow.setUTCHours(24, 0, 0, 0);
+                    const ttlSeconds = Math.floor((tomorrow.getTime() - now.getTime()) / 1000);
+                    
+                    // 标记阻断，并让该数据准点自毁，实现自动复活
+                    await env.NODE_STATUS.put(kvKey, 'offline', { expirationTtl: Math.max(60, ttlSeconds) });
+                } else {
+                    // 若恢复健康，清空隔离标记
+                    await env.NODE_STATUS.delete(kvKey);
+                }
+            }
+        });
+        
+        await Promise.all(checks);
+    } catch (e) {
+        console.log("Health check parsing failed");
+    }
+}
+
+// 单体账号 GraphQL 请求量探测核心
+async function getCloudflareUsage(accountID, apiToken) {
+    const API = "https://api.cloudflare.com/client/v4/graphql";
+    const now = new Date(); 
+    now.setUTCHours(0, 0, 0, 0); 
+    
+    try {
+        const res = await fetch(API, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${apiToken}`
+            },
+            body: JSON.stringify({
+                query: `query getBillingMetrics($AccountID: String!, $filter: AccountWorkersInvocationsAdaptiveFilter_InputObject) { 
+                    viewer { 
+                        accounts(filter: {accountTag: $AccountID}) { 
+                            workersInvocationsAdaptive(limit: 10000, filter: $filter) { sum { requests } } 
+                            pagesFunctionsInvocationsAdaptiveGroups(limit: 1000, filter: $filter) { sum { requests } }
+                        } 
+                    } 
+                }`,
+                variables: {
+                    AccountID: accountID,
+                    filter: { datetime_geq: now.toISOString(), datetime_leq: new Date().toISOString() }
+                }
+            })
+        });
+        
+        if (!res.ok) throw new Error("API Limit or Error");
+        const result = await res.json();
+        
+        const acc = result?.data?.viewer?.accounts?.[0];
+        const workersReq = acc?.workersInvocationsAdaptive?.reduce((t, i) => t + (i?.sum?.requests || 0), 0) || 0;
+        const pagesReq = acc?.pagesFunctionsInvocationsAdaptiveGroups?.reduce((t, i) => t + (i?.sum?.requests || 0), 0) || 0;
+        
+        return { success: true, requests: workersReq + pagesReq };
+    } catch (e) {
+        return { success: false, msg: e.message };
+    }
+}
 
 async function getCustomIPs(env) {
     let ips = getEnv(env, 'ADD', "");
@@ -333,13 +479,11 @@ async function getCustomIPs(env) {
     return ips;
 }
 
-// 🟢 重构后的多账号节点池生成逻辑
 function genNodes(hostsArray, u, p, ipsText, ps = "", defaultIP = "") {
     let l = ipsText.split('\n').filter(line => line.trim() !== "");
     
     let safeP = p ? p.trim() : "";
     let safeDef = defaultIP ? defaultIP.trim() : "";
-    
     let finalPath = NODE_DEFAULT_PATH;
     if (safeP && safeP !== "" && safeP !== safeDef) {
         finalPath += `?proxyip=${safeP}`;
@@ -355,22 +499,15 @@ function genNodes(hostsArray, u, p, ipsText, ps = "", defaultIP = "") {
         
         let i = I, pt = "443"; 
         if (I.includes(']:')) { 
-            const s = I.split(']:');
-            i = s[0] + ']';
-            pt = s[1];
+            const s = I.split(']:'); i = s[0] + ']'; pt = s[1];
         } else if (I.includes(':') && !I.includes('[')) { 
-            const s = I.split(':');
-            i = s[0];
-            pt = s[1];
+            const s = I.split(':'); i = s[0]; pt = s[1];
         }
 
-        // 双重映射：针对每一个 ProxyIP，为域名池中的每个账号生成一个节点
         hostsArray.forEach((h, hostIndex) => {
             let baseName = n ? n.trim() : 'Edge-Instance';
-            // 如果只有一个域名，就不加编号后缀；如果有多个，就自动标上 Node1, Node2 区分
             let N = hostsArray.length > 1 ? `${baseName}-Node${hostIndex + 1}` : baseName;
             if (ps) N = `${N} ${ps}`;
-            
             nodes.push(`${PT_TYPE}://${u}@${i}:${pt}?encryption=none&security=tls&sni=${h}&alpn=h3&fp=random&allowInsecure=1&type=ws&host=${h}&path=${encodedPath}#${encodeURIComponent(N)}`);
         });
     });
