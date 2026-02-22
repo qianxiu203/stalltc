@@ -3,8 +3,8 @@ import { connect } from 'cloudflare:sockets';
 // =============================================================================
 // 🟣 用户配置区域 (建议在 Cloudflare 后台设置对应的环境变量，勿在此硬编码)
 // =============================================================================
-const UUID = ""; // 你的 UUID 
-const WEB_PASSWORD = "";  // 管理面板登录密码
+const UUID = ""; // 你的核心 UUID 
+const WEB_PASSWORD = "";  // 管理面板登录密码 & Cron 触发器鉴权密码
 const SUB_PASSWORD = "";  // 订阅路径密码
 
 // 🟢【重要配置】: 默认 ProxyIP (兜底地址)
@@ -13,7 +13,6 @@ const DEFAULT_PROXY_IP = "";
 // 🟢【伪装配置】: 默认节点路径
 const NODE_DEFAULT_PATH = "/api/v1"; 
 const ROOT_REDIRECT_URL = ""; 
-
 // =============================================================================
 // 🚀 进阶架构配置说明 (多账号横向扩展 & 自动熔断)
 // =============================================================================
@@ -160,13 +159,12 @@ const handle = (ws, proxyConfig, uuid) => {
 };
 
 // =============================================================================
-// 🎨 极简暗黑毛玻璃 (Dark Glassmorphism) 面板代码
+// 🎨 极简暗黑毛玻璃 (Dark Glassmorphism) 面板
 // =============================================================================
 const COMMON_STYLE = `
     :root { 
         --bg-dark: #0f172a; 
         --surface: rgba(30, 41, 59, 0.7); 
-        --surface-hover: rgba(30, 41, 59, 0.9);
         --primary: #3b82f6; 
         --primary-hover: #2563eb;
         --danger: #ef4444;
@@ -175,29 +173,24 @@ const COMMON_STYLE = `
         --border: rgba(255, 255, 255, 0.1); 
         --radius: 12px;
     }
-    body { font-family: system-ui, -apple-system, sans-serif; background-color: var(--bg-dark); background-image: radial-gradient(circle at 50% 0%, #1e293b, #0f172a); color: var(--text-main); margin: 0; min-height: 100vh; display: flex; justify-content: center; align-items: center; overflow-x: hidden; }
+    body { font-family: system-ui, -apple-system, sans-serif; background-color: var(--bg-dark); background-image: radial-gradient(circle at 50% 0%, #1e293b, #0f172a); color: var(--text-main); margin: 0; min-height: 100vh; display: flex; justify-content: center; align-items: center; }
     .glass-card { background: var(--surface); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid var(--border); border-radius: var(--radius); padding: 2.5rem; width: 90%; max-width: 540px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); position: relative; }
     .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
-    .title { font-size: 1.5rem; font-weight: 600; margin: 0; letter-spacing: -0.025em; display: flex; align-items: center; gap: 0.5rem; }
+    .title { font-size: 1.5rem; font-weight: 600; margin: 0; display: flex; align-items: center; gap: 0.5rem; }
     .title::before { content: ''; display: block; width: 12px; height: 12px; background: var(--primary); border-radius: 50%; box-shadow: 0 0 10px var(--primary); }
-    
-    .btn { background: var(--primary); color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 8px; font-weight: 500; font-size: 0.9rem; cursor: pointer; transition: all 0.2s ease; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
-    .btn:hover { background: var(--primary-hover); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); }
-    .btn:active { transform: translateY(0); }
+    .btn { background: var(--primary); color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 8px; font-weight: 500; cursor: pointer; transition: all 0.2s ease; }
+    .btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
     .btn-danger { background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
-    .btn-danger:hover { background: var(--danger); border-color: var(--danger); color: white; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3); }
-    
+    .btn-danger:hover { background: var(--danger); border-color: var(--danger); color: white; }
     .form-group { margin-bottom: 1.5rem; }
-    .label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.5rem; text-transform: uppercase; }
     .input-wrapper { display: flex; gap: 0.5rem; }
-    input { width: 100%; padding: 0.75rem 1rem; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border); border-radius: 8px; color: var(--text-main); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.9rem; outline: none; transition: border-color 0.2s; box-sizing: border-box; }
-    input:focus { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
-    
+    input { width: 100%; padding: 0.75rem 1rem; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border); border-radius: 8px; color: var(--text-main); font-family: monospace; outline: none; transition: border-color 0.2s; box-sizing: border-box; }
+    input:focus { border-color: var(--primary); }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
     .info-box { background: rgba(15, 23, 42, 0.4); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
-    .info-val { font-family: ui-monospace, monospace; font-size: 0.95rem; word-break: break-all; margin-top: 0.25rem; }
-    
-    #toast { position: fixed; bottom: 2rem; left: 50%; transform: translate(-50%, 100px); background: var(--text-main); color: var(--bg-dark); padding: 0.75rem 1.5rem; border-radius: 2rem; font-weight: 600; font-size: 0.9rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); pointer-events: none; }
+    .info-val { font-family: monospace; font-size: 0.95rem; word-break: break-all; margin-top: 0.25rem; }
+    #toast { position: fixed; bottom: 2rem; left: 50%; transform: translate(-50%, 100px); background: var(--text-main); color: var(--bg-dark); padding: 0.75rem 1.5rem; border-radius: 2rem; font-weight: 600; transition: transform 0.3s; pointer-events: none; }
     #toast.show { transform: translate(-50%, 0); }
     .animate-in { animation: fadeSlideUp 0.5s ease-out forwards; }
     @keyframes fadeSlideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
@@ -206,12 +199,8 @@ const COMMON_STYLE = `
 function loginPage() {
     return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>System Login</title><style>${COMMON_STYLE}</style></head><body>
     <div class="glass-card animate-in" style="max-width: 360px;">
-        <div class="header" style="justify-content: center; margin-bottom: 1.5rem; border: none; padding: 0;">
-            <h1 class="title" style="font-size: 1.25rem;">Node Authentication</h1>
-        </div>
-        <div class="form-group">
-            <input type="password" id="pwd" placeholder="Enter Access Key..." onkeypress="if(event.keyCode===13)verify()" autofocus>
-        </div>
+        <div class="header" style="justify-content: center; margin-bottom: 1.5rem; border: none; padding: 0;"><h1 class="title" style="font-size: 1.25rem;">Node Authentication</h1></div>
+        <div class="form-group"><input type="password" id="pwd" placeholder="Enter Access Key..." onkeypress="if(event.keyCode===13)verify()" autofocus></div>
         <button class="btn" style="width:100%" onclick="verify()">Authenticate</button>
     </div>
     <script>function verify(){const p=document.getElementById("pwd").value;if(!p)return;document.cookie="auth="+p+"; path=/; Max-Age=31536000";location.reload()}</script>
@@ -222,48 +211,25 @@ function dashPage(host, uuid, proxyip, subpass) {
     const defaultSubLink = `https://${host}/${subpass}`;
     return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Node Dashboard</title><style>${COMMON_STYLE}</style></head><body>
     <div class="glass-card animate-in">
-        <div class="header">
-            <h1 class="title">Control Panel</h1>
-            <button class="btn btn-danger" onclick="logout()">Logout</button>
-        </div>
-        
+        <div class="header"><h1 class="title">Control Panel</h1><button class="btn btn-danger" onclick="logout()">Logout</button></div>
         <div class="form-group">
             <span class="label">Subscription Link</span>
-            <div class="input-wrapper">
-                <input type="text" id="subLink" value="${defaultSubLink}" readonly>
-                <button class="btn" onclick="copyId('subLink')">Copy</button>
-            </div>
+            <div class="input-wrapper"><input type="text" id="subLink" value="${defaultSubLink}" readonly><button class="btn" onclick="copyId('subLink')">Copy</button></div>
         </div>
-
         <div class="grid-2 form-group">
-            <div class="info-box">
-                <span class="label">Client UUID</span>
-                <div class="info-val">${uuid.substring(0,8)}...${uuid.substring(uuid.length-4)}</div>
-            </div>
-            <div class="info-box">
-                <span class="label">Edge Host</span>
-                <div class="info-val">${host}</div>
-            </div>
+            <div class="info-box"><span class="label">Client UUID</span><div class="info-val">${uuid.substring(0,8)}...${uuid.substring(uuid.length-4)}</div></div>
+            <div class="info-box"><span class="label">Edge Host</span><div class="info-val">${host}</div></div>
         </div>
-
         <div class="form-group" style="margin-bottom: 0;">
             <span class="label">Routing Override (ProxyIP)</span>
-            <div class="input-wrapper">
-                <input type="text" id="customIP" value="${proxyip}" placeholder="Leave empty for default routing">
-                <button class="btn" onclick="updateLink()">Apply</button>
-            </div>
+            <div class="input-wrapper"><input type="text" id="customIP" value="${proxyip}" placeholder="Leave empty for default routing"><button class="btn" onclick="updateLink()">Apply</button></div>
         </div>
     </div>
     <div id="toast">Copied to clipboard</div>
     <script>
     function showToast(m){const t=document.getElementById('toast');if(m)t.innerText=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000)}
     function copyId(id){const el=document.getElementById(id);el.select();navigator.clipboard.writeText(el.value).then(()=>showToast())}
-    function updateLink(){
-        const ip=document.getElementById('customIP').value.trim();
-        const u="https://"+window.location.hostname+"/${subpass}";
-        document.getElementById('subLink').value = ip ? u+"?proxyip="+ip : u;
-        showToast('Link Updated');
-    }
+    function updateLink(){const ip=document.getElementById('customIP').value.trim(); const u="https://"+window.location.hostname+"/${subpass}"; document.getElementById('subLink').value=ip?u+"?proxyip="+ip:u; showToast('Link Updated');}
     function logout(){document.cookie="auth=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";location.reload()}
     </script></body></html>`;
 }
@@ -272,7 +238,6 @@ function dashPage(host, uuid, proxyip, subpass) {
 // 🟢 主入口 (支持 fetch 和 scheduled 双事件)
 // =============================================================================
 export default {
-  // 负责处理常规的流量代理和订阅下发
   async fetch(r, env, ctx) {
     try {
       const url = new URL(r.url);
@@ -303,14 +268,12 @@ export default {
           activeDomains = poolStr.split(',').map(d => d.trim()).filter(Boolean);
       }
       
-      // 若绑定了 KV 空间，过滤掉已被探针标记为 offline 的熔断节点
       if (env.NODE_STATUS && activeDomains.length > 0) {
           const healthyDomains = [];
           for (let d of activeDomains) {
               const status = await env.NODE_STATUS.get(`status_${d}`);
               if (status !== 'offline') healthyDomains.push(d);
           }
-          // 兜底保护：如果全挂了，就强制放出原始列表，避免订阅完全空白
           if (healthyDomains.length > 0) activeDomains = healthyDomains; 
       }
 
@@ -324,8 +287,19 @@ export default {
           return new Response(btoa(unescape(encodeURIComponent(listText))), { status: 200, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
       }
 
-      // 处理普通 HTTP 请求（面板或重定向）
+      // 处理普通 HTTP 请求
       if (r.headers.get('Upgrade') !== 'websocket') {
+          // 🟢 Pages 环境专属：外部定时器触发接口 (WebHook)
+          if (url.pathname === '/cron') {
+              const requestToken = url.searchParams.get('token');
+              if (requestToken === _WEB_PW && _WEB_PW !== "") {
+                  // 利用 ctx.waitUntil 保证异步探针不阻塞响应
+                  ctx.waitUntil(checkAccountsHealth(env));
+                  return new Response(JSON.stringify({ status: "cron executed", desc: "Checking accounts health...", time: new Date().toISOString() }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+              }
+              return new Response('Unauthorized Webhook Access', { status: 401 });
+          }
+
           if (url.pathname === '/') return Response.redirect(_ROOT_REDIRECT, 302);
           if (url.pathname === '/admin' || url.pathname === '/admin/') {
               if (_WEB_PW) {
@@ -367,7 +341,7 @@ export default {
     }
   },
 
-  // 负责在后台按 Cron 触发定时探针，监控账号健康度并写入 KV
+  // 兼容标准 Worker 的定时任务入口
   async scheduled(event, env, ctx) {
       await checkAccountsHealth(env);
   }
@@ -379,116 +353,76 @@ export default {
 function isSubPath(pw, url) { return pw && url.pathname === `/${pw}`; }
 function isNormalSub(uuid, url) { return url.pathname === '/sub' && url.searchParams.get('uuid') === uuid; }
 
-// 并发探针：遍历各账号用量并实施熔断
 async function checkAccountsHealth(env) {
     if (!env.ACCOUNTS_CONFIG || !env.NODE_STATUS) return;
     try {
         const accounts = JSON.parse(env.ACCOUNTS_CONFIG);
-        
-        // 并发请求所有账号 API，极大缩短执行总时间
         const checks = accounts.map(async (acc) => {
             if (!acc.id || !acc.token || !acc.domain) return;
             const usage = await getCloudflareUsage(acc.id, acc.token);
-            
             if (usage.success) {
                 const isOffline = usage.requests >= 95000;
                 const kvKey = `status_${acc.domain.trim()}`;
-                
                 if (isOffline) {
-                    // 计算距离次日 UTC 0点的秒数，作为自动恢复的 TTL 时效
                     const now = new Date();
                     const tomorrow = new Date(now);
                     tomorrow.setUTCHours(24, 0, 0, 0);
                     const ttlSeconds = Math.floor((tomorrow.getTime() - now.getTime()) / 1000);
-                    
-                    // 标记阻断，并让该数据准点自毁，实现自动复活
                     await env.NODE_STATUS.put(kvKey, 'offline', { expirationTtl: Math.max(60, ttlSeconds) });
                 } else {
-                    // 若恢复健康，清空隔离标记
                     await env.NODE_STATUS.delete(kvKey);
                 }
             }
         });
-        
         await Promise.all(checks);
-    } catch (e) {
-        console.log("Health check parsing failed");
-    }
+    } catch (e) {}
 }
 
-// 单体账号 GraphQL 请求量探测核心
 async function getCloudflareUsage(accountID, apiToken) {
     const API = "https://api.cloudflare.com/client/v4/graphql";
     const now = new Date(); 
     now.setUTCHours(0, 0, 0, 0); 
-    
     try {
         const res = await fetch(API, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${apiToken}`
-            },
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiToken}` },
             body: JSON.stringify({
                 query: `query getBillingMetrics($AccountID: String!, $filter: AccountWorkersInvocationsAdaptiveFilter_InputObject) { 
-                    viewer { 
-                        accounts(filter: {accountTag: $AccountID}) { 
-                            workersInvocationsAdaptive(limit: 10000, filter: $filter) { sum { requests } } 
-                            pagesFunctionsInvocationsAdaptiveGroups(limit: 1000, filter: $filter) { sum { requests } }
-                        } 
-                    } 
+                    viewer { accounts(filter: {accountTag: $AccountID}) { workersInvocationsAdaptive(limit: 10000, filter: $filter) { sum { requests } } pagesFunctionsInvocationsAdaptiveGroups(limit: 1000, filter: $filter) { sum { requests } } } } 
                 }`,
-                variables: {
-                    AccountID: accountID,
-                    filter: { datetime_geq: now.toISOString(), datetime_leq: new Date().toISOString() }
-                }
+                variables: { AccountID: accountID, filter: { datetime_geq: now.toISOString(), datetime_leq: new Date().toISOString() } }
             })
         });
-        
-        if (!res.ok) throw new Error("API Limit or Error");
+        if (!res.ok) throw new Error("API Error");
         const result = await res.json();
-        
         const acc = result?.data?.viewer?.accounts?.[0];
         const workersReq = acc?.workersInvocationsAdaptive?.reduce((t, i) => t + (i?.sum?.requests || 0), 0) || 0;
         const pagesReq = acc?.pagesFunctionsInvocationsAdaptiveGroups?.reduce((t, i) => t + (i?.sum?.requests || 0), 0) || 0;
-        
         return { success: true, requests: workersReq + pagesReq };
-    } catch (e) {
-        return { success: false, msg: e.message };
-    }
+    } catch (e) { return { success: false, msg: e.message }; }
 }
 
 async function getCustomIPs(env) {
     let ips = getEnv(env, 'ADD', "");
     const addApi = getEnv(env, 'ADDAPI', "");
     const addCsv = getEnv(env, 'ADDCSV', "");
-    
     if (addApi) {
         const urls = addApi.split('\n').filter(u => u.trim() !== "");
-        for (const url of urls) {
-            try { const res = await fetch(url.trim(), { headers: { 'User-Agent': 'Mozilla/5.0' } }); if (res.ok) { const text = await res.text(); ips += "\n" + text; } } catch (e) {}
-        }
+        for (const url of urls) { try { const res = await fetch(url.trim(), { headers: { 'User-Agent': 'Mozilla/5.0' } }); if (res.ok) { const text = await res.text(); ips += "\n" + text; } } catch (e) {} }
     }
-    
     if (addCsv) {
         const urls = addCsv.split('\n').filter(u => u.trim() !== "");
-        for (const url of urls) {
-            try { const res = await fetch(url.trim(), { headers: { 'User-Agent': 'Mozilla/5.0' } }); if (res.ok) { const text = await res.text(); const lines = text.split('\n'); for (let line of lines) { const parts = line.split(','); if (parts.length >= 2) ips += `\n${parts[0].trim()}:443#${parts[1].trim()}`; } } } catch (e) {}
-        }
+        for (const url of urls) { try { const res = await fetch(url.trim(), { headers: { 'User-Agent': 'Mozilla/5.0' } }); if (res.ok) { const text = await res.text(); const lines = text.split('\n'); for (let line of lines) { const parts = line.split(','); if (parts.length >= 2) ips += `\n${parts[0].trim()}:443#${parts[1].trim()}`; } } } catch (e) {} }
     }
     return ips;
 }
 
 function genNodes(hostsArray, u, p, ipsText, ps = "", defaultIP = "") {
     let l = ipsText.split('\n').filter(line => line.trim() !== "");
-    
     let safeP = p ? p.trim() : "";
     let safeDef = defaultIP ? defaultIP.trim() : "";
     let finalPath = NODE_DEFAULT_PATH;
-    if (safeP && safeP !== "" && safeP !== safeDef) {
-        finalPath += `?proxyip=${safeP}`;
-    }
-    
+    if (safeP && safeP !== "" && safeP !== safeDef) finalPath += `?proxyip=${safeP}`;
     const encodedPath = encodeURIComponent(finalPath);
     let nodes = [];
 
@@ -496,13 +430,9 @@ function genNodes(hostsArray, u, p, ipsText, ps = "", defaultIP = "") {
         const [a, n] = L.split('#'); 
         if (!a) return;
         const I = a.trim(); 
-        
         let i = I, pt = "443"; 
-        if (I.includes(']:')) { 
-            const s = I.split(']:'); i = s[0] + ']'; pt = s[1];
-        } else if (I.includes(':') && !I.includes('[')) { 
-            const s = I.split(':'); i = s[0]; pt = s[1];
-        }
+        if (I.includes(']:')) { const s = I.split(']:'); i = s[0] + ']'; pt = s[1]; } 
+        else if (I.includes(':') && !I.includes('[')) { const s = I.split(':'); i = s[0]; pt = s[1]; }
 
         hostsArray.forEach((h, hostIndex) => {
             let baseName = n ? n.trim() : 'Edge-Instance';
@@ -511,6 +441,5 @@ function genNodes(hostsArray, u, p, ipsText, ps = "", defaultIP = "") {
             nodes.push(`${PT_TYPE}://${u}@${i}:${pt}?encryption=none&security=tls&sni=${h}&alpn=h3&fp=random&allowInsecure=1&type=ws&host=${h}&path=${encodedPath}#${encodeURIComponent(N)}`);
         });
     });
-
     return nodes.join('\n');
 }
