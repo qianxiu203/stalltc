@@ -33,16 +33,16 @@ const ADMIN_IP = ""; //在此修改添加你的白名单IP
 const DLS = "5000"; // ADDCSV 专用：速度下限筛选阈值 (单位 KB/s)
 
 // =============================================================================
-// 🟢 特征码深度混淆 (全文无敏感词)
+// 🟢 超神奇
 const P_V = 'vl'+'ess';
 const P_S = 'so'+'cks';
 const P_S5 = 'so'+'cks5';
 
 // ECH + 指纹伪装配置
-let ECH = false;  // ECH 开关 (支持环境变量覆盖)
-let ECH_DNS = 'htt'+'ps://doh.'+'cm'+'liussss.com/'+'CM'+'Liussss';
+let ECH = true;  // ECH 开关 (支持环境变量覆盖)
+let ECH_DNS = 'https://odvr.nic.cz/doh';
 let ECH_SNI = 'cloudflare-ech.com';
-let FP = ECH ? 'chrome' : 'randomized';
+let FP = ECH ? 'firefox' : 'randomized';
 
 // ECH Config 动态获取 (二进制 DoH wire format)
 async function _getECH() {
@@ -167,7 +167,7 @@ async function pCL(text, uuid, h) {
         while(bc>0&&i+1<L.length){i++;fn+='\n'+L[i];bc+=(L[i].match(/\{/g)||[]).length-(L[i].match(/\}/g)||[]).length;}
         const um=fn.match(/uuid:\s*([^,}\n]+)/);
         if(um&&um[1].trim()===uuid.trim()){
-          fn=fn.replace(/client-fingerprint:\s*[^,}\s]+/,'client-fingerprint: chrome');
+          fn=fn.replace(/client-fingerprint:\s*[^,}\s]+/,'client-fingerprint: firefox');
           fn=fn.replace(/\}(\s*)$/,`, ${_eo}: {enable: true, ${_qsn}: ${ECH_SNI}${_echB64 ? ', config: ' + _echB64 : ''}}}$1`);
         }
         R.push(fn);i++;
@@ -180,7 +180,7 @@ async function pCL(text, uuid, h) {
           nl.push(nx);i++;}
         const um=nl.join('\n').match(/uuid:\s*([^\n]+)/);
         if(um&&um[1].trim()===uuid.trim()){
-          for(let j=0;j<nl.length;j++){if(/client-fingerprint:/.test(nl[j])){nl[j]=nl[j].replace(/client-fingerprint:\s*\S+/,'client-fingerprint: chrome');break;}}
+          for(let j=0;j<nl.length;j++){if(/client-fingerprint:/.test(nl[j])){nl[j]=nl[j].replace(/client-fingerprint:\s*\S+/,'client-fingerprint: firefox');break;}}
           let ii=-1;for(let j=nl.length-1;j>=0;j--)if(nl[j].trim()){ii=j;break;}
           if(ii>=0){const ind=' '.repeat(bi+2);const echLines=[ind+_eo+':',ind+'  enable: true',ind+'  '+_qsn+': '+ECH_SNI];if(_echB64){echLines.push(ind+'  config: '+_echB64);}nl.splice(ii+1,0,...echLines);}}
         R.push(...nl);
@@ -804,7 +804,7 @@ export default {
       ECH = _echFlag === 'true';
       ECH_SNI = await getSafeEnv(env, 'ECH_SNI', ECH_SNI);
       ECH_DNS = await getSafeEnv(env, 'ECH_DNS', ECH_DNS);
-      FP = ECH ? 'chrome' : 'randomized';
+      FP = ECH ? 'firefox' : 'randomized';
 
       // 👇 变量去重与统一调用逻辑：优先 getSafeEnv(环境变量, 默认常量)
       const _TG_GROUP_URL = await getSafeEnv(env, 'TG_GROUP_URL', TG_GROUP_URL);
@@ -872,71 +872,86 @@ export default {
           const requestProxyIp = url.searchParams.get('proxyip') || _PROXY_IP;
           const pathParam = requestProxyIp ? "/proxyip=" + requestProxyIp : "/";
           
-          if (UA_L.includes('si'+'ng-'+'box') || UA_L.includes('si'+'ng'+'box') || UA_L.includes('cl'+'ash') || UA_L.includes('me'+'ta') || UA_L.includes('lo'+'on') || UA_L.includes('su'+'rge') || UA_L.includes('hid'+'dify') || UA_L.includes('mi'+'ho'+'mo') || UA_L.includes('fl'+'cl'+'ash') || UA_L.includes('st'+'ash') || UA_L.includes('sfi')) {
-              const type = (UA_L.includes('cl'+'ash') || UA_L.includes('me'+'ta') || UA_L.includes('mi'+'ho'+'mo') || UA_L.includes('fl'+'cl'+'ash') || UA_L.includes('st'+'ash') || UA_L.includes('nek'+'obo'+'x')) ? ('cl'+'ash') : ('si'+'ng'+'box');
-              const configList = type === ('cl'+'ash') ? [_CLASH_CONFIG] : Array.from(new Set([_SINGBOX_CONFIG_V11, _SINGBOX_CONFIG_V12].filter(Boolean)));
-              
-              let lastRes = null;
-              {
-                  let targetSubDomain = _SUB_DOMAIN;
-                  const _SUB_TOKEN = await getSafeEnv(env, 'SUB_TOKEN', SUB_TOKEN);
-                  let subUrl;
-                  if (_SUB_TOKEN) {
-                      // Desire 模式：生成基础节点作为 base
-                      const _desireIPs = await getCustomIPs(env, _DLS);
-                      const _desireIP = (_desireIPs[0] || _PROXY_IP || host);
-                      const _desireNode = genNodes(host, _UUID, _PROXY_IP, _desireIP ? [_desireIP] : [], _PS);
-                      const _desireBase = (typeof _desireNode === 'string' ? _desireNode : _desireNode.split('\n')[0]).split('\n')[0];
-                      subUrl = `https://${targetSubDomain}/sub?base=${encodeURIComponent(_desireBase)}&token=${encodeURIComponent(_SUB_TOKEN)}` + (ECH ? `&ech=${encodeURIComponent((ECH_SNI ? ECH_SNI + '+' : '') + ECH_DNS)}` : '');
-                  } else {
-                      subUrl = `https://${targetSubDomain}/sub?uuid=${_UUID}&${'enc'+'ryption'}=none&${'secu'+'rity'}=tls&sni=${host}&alpn=h3&fp=${FP}&allowInsecure=0&type=ws&host=${host}&path=${encodeURIComponent(pathParam)}` + (ECH ? `&ech=${encodeURIComponent((ECH_SNI ? ECH_SNI + '+' : '') + ECH_DNS)}` : '');
-                  }
+          // ===== 自适应订阅：完整客户端适配（参考 EDT 2.1）=====
+          const _manualTarget = url.searchParams.get('target');
+          const 订阅类型 = _manualTarget
+            ? _manualTarget
+            : (UA_L.includes('cl'+'ash') || UA_L.includes('me'+'ta') || UA_L.includes('mi'+'ho'+'mo') || UA_L.includes('fl'+'cl'+'ash') || UA_L.includes('st'+'ash') || UA_L.includes('nek'+'obo'+'x'))
+              ? 'clash'
+              : (UA_L.includes('si'+'ng-'+'box') || UA_L.includes('si'+'ng'+'box') || UA_L.includes('sfi') || UA_L.includes('hid'+'dify') || UA_L.includes('kar'+'ing'))
+                ? 'singbox'
+                : UA_L.includes('su'+'rge')
+                  ? 'surge'
+                  : UA_L.includes('qua'+'ntu'+'mult')
+                    ? 'quanx'
+                    : UA_L.includes('lo'+'on')
+                      ? 'loon'
+                      : null;
 
-                  for (const config of configList) {
-                      const subApi = `${_CONVERTER}/sub?target=${type}&url=${encodeURIComponent(subUrl)}&config=${encodeURIComponent(config)}&emoji=true&list=false&sort=false&fdn=false&scv=false`;
-                      try {
-                          const res = await fetch(subApi, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } });
-                          if (res.ok) { lastRes = res; break; }
-                      } catch(e) {}
-                  }
-              }
-              if (lastRes) {
-                let _body = await lastRes.text();
-                // ECH 注入：只对支持 ECH 的客户端
-                const _echSB = UA_L.includes('si'+'ng-'+'box') || UA_L.includes('si'+'ng'+'box') || UA_L.includes('sfi') || UA_L.includes('hid'+'dify') || UA_L.includes('kar'+'ing');
-                const _echCL = UA_L.includes('cla'+'sh') || UA_L.includes('me'+'ta') || UA_L.includes('mi'+'ho'+'mo') || UA_L.includes('fl'+'cla'+'sh') || UA_L.includes('sta'+'sh') || UA_L.includes('nek'+'obo'+'x');
-                if (ECH && (_echSB || _echCL)) {
-                  if (type === ('si'+'ng'+'box') && _echSB) _body = await pSB(_body, _UUID);
-                  else if (type === ('cl'+'ash') && _echCL) _body = await pCL(_body, _UUID, url.hostname);
-                }
-                return new Response(_body, { status: 200, headers: lastRes.headers });
+          // 构造上游 subUrl（ST裂变/原始SUB，逻辑不变）
+          let _subUrl;
+          {
+              const _SUB_TOKEN = await getSafeEnv(env, 'SUB_TOKEN', SUB_TOKEN);
+              if (_SUB_TOKEN) {
+                  const _desireIPs = await getCustomIPs(env, _DLS);
+                  const _desireIP = (_desireIPs[0] || _PROXY_IP || host);
+                  const _desireNode = genNodes(host, _UUID, _PROXY_IP, _desireIP ? [_desireIP] : [], _PS);
+                  const _desireBase = (typeof _desireNode === 'string' ? _desireNode : _desireNode.split('\n')[0]).split('\n')[0];
+                  _subUrl = `https://${_SUB_DOMAIN}/sub?base=${encodeURIComponent(_desireBase)}&token=${encodeURIComponent(_SUB_TOKEN)}` + (ECH ? `&ech=${encodeURIComponent((ECH_SNI ? ECH_SNI + '+' : '') + ECH_DNS)}` : '');
+              } else {
+                  _subUrl = `https://${_SUB_DOMAIN}/sub?uuid=${_UUID}&${'enc'+'ryption'}=none&${'secu'+'rity'}=tls&sni=${host}&alpn=h3&fp=${FP}&allowInsecure=0&type=ws&host=${host}&path=${encodeURIComponent(pathParam)}` + (ECH ? `&ech=${encodeURIComponent((ECH_SNI ? ECH_SNI + '+' : '') + ECH_DNS)}` : '');
               }
           }
-          
-          // 原生订阅处理
+
+          // 通用响应头
+          const _subHeaders = {
+              'Profile-Update-Interval': '3',
+              'Subscription-Userinfo': `upload=0; download=0; total=${24 * 1099511627776}; expire=4102329600`,
+              'Cache-Control': 'no-store'
+          };
+          if (!UA_L.includes('mozilla')) _subHeaders['Content-Disposition'] = `attachment; filename*=utf-8''${encodeURIComponent(_PS || 'AK1.32V2')}`;
+
+          // ===== 路径A：需要订阅转换的客户端（clash/singbox/surge/quanx/loon）=====
+          if (订阅类型) {
+              const subApiTarget = 订阅类型 === 'surge' ? 'surge&ver=4' : 订阅类型;
+              const configList = (订阅类型 === 'singbox')
+                  ? Array.from(new Set([_SINGBOX_CONFIG_V11, _SINGBOX_CONFIG_V12].filter(Boolean)))
+                  : [_CLASH_CONFIG];
+
+              let lastRes = null;
+              for (const config of configList) {
+                  const subApi = `${_CONVERTER}/sub?target=${subApiTarget}&url=${encodeURIComponent(_subUrl)}&config=${encodeURIComponent(config)}&emoji=true&list=false&sort=false&fdn=false&scv=false`;
+                  try {
+                      const res = await fetch(subApi, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } });
+                      if (res.ok) { lastRes = res; break; }
+                  } catch(e) {}
+              }
+
+              if (lastRes) {
+                  let _body = await lastRes.text();
+                  // ECH 精准注入：只对支持 ECH 的客户端
+                  if (ECH) {
+                      if (订阅类型 === 'singbox') _body = await pSB(_body, _UUID);
+                      else if (订阅类型 === 'clash') _body = await pCL(_body, _UUID, url.hostname);
+                      // surge/quanx/loon 不支持 ECH，不注入
+                  }
+                  if (订阅类型 === 'clash') _subHeaders['Content-Type'] = 'application/x-yaml; charset=utf-8';
+                  else if (订阅类型 === 'singbox') _subHeaders['Content-Type'] = 'application/json; charset=utf-8';
+                  else _subHeaders['Content-Type'] = 'text/plain; charset=utf-8';
+                  return new Response(_body, { status: 200, headers: _subHeaders });
+              }
+          }
+
+          // ===== 路径B：原生订阅（v2rayN/Shadowrocket/Happ/浏览器等）=====
           try {
             let success = false;
             let body = "";
-            let finalHeaders = {};
 
             if (host.toLowerCase() !== _SUB_DOMAIN.toLowerCase()) {
-                const _SUB_TOKEN2 = await getSafeEnv(env, 'SUB_TOKEN', SUB_TOKEN);
-                let subUrl;
-                if (_SUB_TOKEN2) {
-                    // Desire 模式：生成基础节点作为 base
-                    const _desireIPs2 = await getCustomIPs(env, _DLS);
-                    const _desireIP2 = (_desireIPs2[0] || _PROXY_IP || host);
-                    const _desireNode2 = genNodes(host, _UUID, _PROXY_IP, _desireIP2 ? [_desireIP2] : [], _PS);
-                    const _desireBase2 = (typeof _desireNode2 === 'string' ? _desireNode2 : _desireNode2.split('\n')[0]).split('\n')[0];
-                    subUrl = `https://${_SUB_DOMAIN}/sub?base=${encodeURIComponent(_desireBase2)}&token=${encodeURIComponent(_SUB_TOKEN2)}` + (ECH ? `&ech=${encodeURIComponent((ECH_SNI ? ECH_SNI + '+' : '') + ECH_DNS)}` : '');
-                } else {
-                    subUrl = `https://${_SUB_DOMAIN}/sub?uuid=${_UUID}&${'enc'+'ryption'}=none&${'secu'+'rity'}=tls&sni=${host}&alpn=h3&fp=${FP}&allowInsecure=0&type=ws&host=${host}&path=${encodeURIComponent(pathParam)}` + (ECH ? `&ech=${encodeURIComponent((ECH_SNI ? ECH_SNI + '+' : '') + ECH_DNS)}` : '');
-                }
                 try {
-                    const res = await fetch(subUrl, { headers: { 'User-Agent': UA } });
+                    const res = await fetch(_subUrl, { headers: { 'User-Agent': UA } });
                     if (res.ok) {
                         body = await res.text();
-                        finalHeaders = res.headers;
                         success = true;
                     }
                 } catch(e) {}
@@ -948,8 +963,8 @@ export default {
                   let lines = decoded.split('\n').map(line => {
                     line = line.trim();
                     if (!line || !line.includes('://')) return line;
-                    // ECH URI inject
-                    const _echURI = UA_L.includes('v2'+'ray') || UA_L.includes('sha'+'dow'+'roc'+'ket');
+                    // ECH URI 注入（v2rayN/Shadowrocket 支持）
+                    const _echURI = UA_L.includes('v2'+'ray') || UA_L.includes('sha'+'dow'+'roc'+'ket') || UA_L.includes('ha'+'pp');
                     if (ECH && _echURI && !line.includes('&ech=')) {
                       const echVal = encodeURIComponent((ECH_SNI ? ECH_SNI + '+' : '') + ECH_DNS);
                       const hashIdx = line.indexOf('#');
@@ -959,7 +974,7 @@ export default {
                         line = line + '&ech=' + echVal;
                       }
                     }
-                    // FP 修正：ECH 开启时确保 fp=chrome (仅支持 ECH 的客户端)
+                    // FP 修正
                     if (ECH && _echURI && line.includes('fp=')) {
                       line = line.replace(/fp=[^&#]+/, 'fp=' + FP);
                     }
@@ -970,15 +985,22 @@ export default {
                     }
                     return line;
                   });
-                  body = btoa(lines.join('\n'));
+                  // 浏览器不 base64（方便调试），代理客户端 base64
+                  const isBrowser = UA_L.includes('mozilla') && !UA_L.includes('v2'+'ray') && !UA_L.includes('sha'+'dow'+'roc'+'ket') && !UA_L.includes('ha'+'pp');
+                  body = isBrowser ? lines.join('\n') : btoa(lines.join('\n'));
                 } catch(e) {}
-                return new Response(body, { status: 200, headers: finalHeaders });
+                _subHeaders['Content-Type'] = 'text/plain; charset=utf-8';
+                return new Response(body, { status: 200, headers: _subHeaders });
             }
           } catch(e) {}
-          
-          const allIPs = await getCustomIPs(env, _DLS); // 传入 DLS
+
+          // ===== 兜底：本地生成 =====
+          const allIPs = await getCustomIPs(env, _DLS);
           const listText = genNodes(host, _UUID, requestProxyIp, allIPs, _PS);
-          return new Response(btoa(unescape(encodeURIComponent(listText))), { status: 200, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+          const isBrowserFallback = UA_L.includes('mozilla') && !UA_L.includes('v2'+'ray') && !UA_L.includes('sha'+'dow'+'roc'+'ket') && !UA_L.includes('ha'+'pp');
+          const fallbackBody = isBrowserFallback ? listText : btoa(unescape(encodeURIComponent(listText)));
+          _subHeaders['Content-Type'] = 'text/plain; charset=utf-8';
+          return new Response(fallbackBody, { status: 200, headers: _subHeaders });
       }
 
       if (url.pathname === '/sub') {
@@ -3094,8 +3116,8 @@ function dashPage(host, uuid, proxyip, subpass, subdomain, converter, env, clien
                             </div>
                             <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
                                 <span style="font-size:0.8rem;color:var(--text-dim)">指纹 (FP):</span>
-                                <span id="fpDisplay" style="font-size:0.8rem;color:var(--glass-green);font-weight:600">${echEnabled === 'true' ? 'chrome' : 'randomized'}</span>
-                                <span style="font-size:0.75rem;color:var(--text-dim)">(ECH开→chrome, 关→randomized)</span>
+                                <span id="fpDisplay" style="font-size:0.8rem;color:var(--glass-green);font-weight:600">${echEnabled === 'true' ? 'firefox' : 'randomized'}</span>
+                                <span style="font-size:0.75rem;color:var(--text-dim)">(ECH开→firefox, 关→randomized)</span>
                             </div>
                             <div style="display:flex;gap:8px">
                                 <button class="btn btn-success" style="flex:1;padding:8px;font-size:0.85rem" onclick="saveEchConfig()">💾 保存 ECH 配置</button>
@@ -3451,7 +3473,7 @@ function dashPage(host, uuid, proxyip, subpass, subdomain, converter, env, clien
             document.getElementById('echDetail').style.display = on ? '' : 'none';
             document.getElementById('echLabel').textContent = on ? '已启用' : '已关闭';
             const fpEl = document.getElementById('fpDisplay');
-            if (fpEl) fpEl.textContent = on ? 'chrome' : 'randomized';
+            if (fpEl) fpEl.textContent = on ? 'firefox' : 'randomized';
         }
         function saveEchConfig() {
             const data = {
@@ -3476,7 +3498,7 @@ function dashPage(host, uuid, proxyip, subpass, subdomain, converter, env, clien
             search.set('sni', host);
             search.set('alpn', 'h3');
             const _echOn = document.getElementById('echSwitch')?.checked;
-            search.set('fp', _echOn ? 'chrome' : 'randomized');
+            search.set('fp', _echOn ? 'firefox' : 'randomized');
             search.set('allowInsecure', '0');
             search.set('type', 'ws');
             search.set('host', host);
