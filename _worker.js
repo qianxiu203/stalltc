@@ -10,7 +10,7 @@ const WEB_PASSWORD = "abc";  //修改你的登录密码
 const SUB_PASSWORD = "123456";  //修改你的订阅密码
 const SUB_TOKEN = "";  //ST裂变Token，留空不启用，支持环境变量 SUB_TOKEN 覆盖
 const DEFAULT_PROXY_IP = 'Pro'+'xy'+'IP.US.CM'+'Liu'+'ssss.net'; //单个proxyip socks5 http
-const DEFAULT_SUB_DOMAIN = 'su'+'b.cm'+'liu'+'ssss.net'; //单个sub优选订阅
+const DEFAULT_SUB_DOMAIN = 'https://sub.danfeng.eu.org'; //单个sub优选订阅
 const DEFAULT_CONVERTER = 'htt'+'ps://su'+'bap'+'i.cm'+'liu'+'ssss.net'; //转换后端api
 
 // --- 界面与链接配置 ---
